@@ -122,7 +122,7 @@ def get_professor_offerings_for_course(course_code):
                     'course_title': row[2],
                     'year': row[3],
                     'semester': row[4],
-                    'course_gpa': row[9],
+                    'course_gpa': row[10],
                     'instructors': [iname for iname in row[5:10] if iname and str(iname).strip() and str(iname).strip().lower() != 'none']
                 })
         except Exception:
