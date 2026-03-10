@@ -13,6 +13,7 @@ from .scripts.recommendation_engine import (
     get_department_courses,
     filter_eligible_courses_unique,
     get_professor_offerings_for_course,
+    generate_degree_plan,
     normalize_code
 )
 from .scripts.parse_transcript import extract_all_courses
@@ -406,7 +407,74 @@ def get_recommendations():
                 'remainingElectiveSlots': remaining_elective_slots,
             }
         }), 200
-        
+
+    except Exception as e:
+        traceback.print_exc(file=sys.stderr)
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/degree-plan', methods=['POST'])
+def degree_plan():
+    """Generate a semester-by-semester degree plan."""
+    try:
+        data = request.get_json(force=True)
+        department = data.get('department', 'CE')
+        completed_courses = data.get('completed_courses', [])
+        credits_per_semester = data.get('credits_per_semester', 15)
+        selected_next = data.get('selected_next_semester', None)
+
+        if not department:
+            return jsonify({'error': 'Department is required'}), 400
+
+        all_courses = get_department_courses(department)
+        semesters = generate_degree_plan(
+            all_courses, completed_courses, credits_per_semester, selected_next
+        )
+
+        total_remaining_hours = sum(s['totalHours'] for s in semesters)
+
+        # Also provide eligible courses for the frontend course picker
+        eligible = filter_eligible_courses_unique(all_courses, completed_courses)
+        eligible_list = []
+        for code, course in eligible.items():
+            req_type = course.get('Requirement', 'required')
+            hrs = course.get('Credit_Hours', 3)
+            try:
+                hrs = int(hrs)
+            except (ValueError, TypeError):
+                hrs = 3
+            eligible_list.append({
+                'code': code,
+                'name': course.get('Course_Name', ''),
+                'creditHours': hrs,
+                'requirement': req_type,
+            })
+
+        # Sort: required first, then by code
+        eligible_list.sort(key=lambda x: (0 if x['requirement'] == 'required' else 1, x['code']))
+
+        # Progress stats
+        normalized_completed = set(normalize_code(c) for c in completed_courses)
+        all_non_placeholder = [c for c in all_courses if 'XX' not in c['Course_Num']]
+        total_courses = len(all_non_placeholder)
+        total_hours = sum(c.get('Credit_Hours', 3) for c in all_non_placeholder)
+        completed_count = sum(1 for c in all_non_placeholder if normalize_code(c['Course_Num']) in normalized_completed)
+        completed_hours = sum(c.get('Credit_Hours', 3) for c in all_non_placeholder if normalize_code(c['Course_Num']) in normalized_completed)
+
+        return jsonify({
+            'success': True,
+            'plan': semesters,
+            'totalSemesters': len(semesters),
+            'totalRemainingHours': total_remaining_hours,
+            'eligibleCourses': eligible_list,
+            'stats': {
+                'totalCourses': total_courses,
+                'totalHours': total_hours,
+                'completedCourses': completed_count,
+                'completedHours': completed_hours,
+            }
+        }), 200
+
     except Exception as e:
         traceback.print_exc(file=sys.stderr)
         return jsonify({'error': str(e)}), 500

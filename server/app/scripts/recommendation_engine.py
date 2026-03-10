@@ -107,6 +107,191 @@ def filter_eligible_courses_unique(all_courses, completed_courses):
 
     return eligible
 
+def generate_degree_plan(all_courses, completed_courses, credits_per_semester, selected_next=None):
+    """
+    Generate a semester-by-semester degree plan.
+    Uses greedy topological scheduling: each semester, pick eligible courses
+    prioritized by unlock potential (how many other courses depend on this one),
+    required-first, and fill up to credit hour target.
+
+    Args:
+        all_courses: list of course dicts from get_department_courses()
+        completed_courses: list of completed course code strings
+        credits_per_semester: target credit hours per semester (e.g. 15)
+        selected_next: optional list of course codes the user picked for semester 1
+
+    Returns:
+        list of semester dicts: [{semester, label, courses: [{code, name, creditHours, requirement}], totalHours}]
+    """
+    course_map = {normalize_code(c['Course_Num']): c for c in all_courses}
+    normalized_completed = set(normalize_code(c) for c in completed_courses)
+    normalized_completed = expand_completed_with_prereqs(normalized_completed, course_map)
+
+    # Apply ENGR 1101 / UNIV either-or rule
+    completed_univ = any(c.startswith('UNIV') for c in normalized_completed)
+    completed_engr1101 = 'ENGR 1101' in normalized_completed
+
+    # Build remaining courses set (not yet completed)
+    remaining = {}
+    for course in all_courses:
+        code = normalize_code(course['Course_Num'])
+        # Skip placeholders like "CE 43XX"
+        if 'X' in code.split()[-1] if len(code.split()) == 2 else False:
+            continue
+        if code not in normalized_completed:
+            remaining[code] = course
+
+    # Apply either-or: remove the alternative if one is completed
+    if completed_univ:
+        remaining.pop('ENGR 1101', None)
+    if completed_engr1101:
+        for code in list(remaining):
+            if code.startswith('UNIV'):
+                remaining.pop(code, None)
+
+    # Build reverse dependency map: for each course, how many other courses need it as a prereq
+    unlock_count = {}
+    for code, course in remaining.items():
+        prereqs = course.get('Pre_Requisites', '').strip()
+        if prereqs and prereqs.lower() != 'none':
+            for p in [normalize_code(x) for x in prereqs.split(',') if x.strip()]:
+                unlock_count[p] = unlock_count.get(p, 0) + 1
+
+    def get_credit_hours(course):
+        hrs = course.get('Credit_Hours', 3)
+        try:
+            return int(hrs)
+        except (ValueError, TypeError):
+            return 3
+
+    def get_coreqs(course):
+        coreqs = course.get('Co_Requisites', '').strip()
+        if not coreqs or coreqs.lower() == 'none':
+            return []
+        return [normalize_code(c) for c in coreqs.split(',') if c.strip()]
+
+    planned_completed = set(normalized_completed)
+    semesters = []
+    semester_num = 0
+
+    while remaining:
+        semester_num += 1
+
+        # Find all currently eligible courses from remaining
+        eligible = []
+        for code, course in remaining.items():
+            if is_course_eligible(course, planned_completed, course_map):
+                eligible.append(code)
+
+        if not eligible:
+            # Deadlock: remaining courses exist but none eligible (missing external prereqs)
+            # Add them as a final "remaining" bucket
+            leftover = []
+            for code in list(remaining):
+                c = remaining[code]
+                leftover.append({
+                    'code': code,
+                    'name': c.get('Course_Name', ''),
+                    'creditHours': get_credit_hours(c),
+                    'requirement': c.get('Requirement', 'required'),
+                })
+            if leftover:
+                semesters.append({
+                    'semester': semester_num,
+                    'label': 'Remaining (prerequisites not in degree plan)',
+                    'courses': leftover,
+                    'totalHours': sum(c['creditHours'] for c in leftover),
+                })
+            break
+
+        # Semester 1: use user's picks if provided
+        if semester_num == 1 and selected_next:
+            normalized_picks = [normalize_code(c) for c in selected_next]
+            semester_courses = [c for c in normalized_picks if c in eligible]
+            # Also pull in corequisites of selected courses
+            extra_coreqs = []
+            for code in semester_courses:
+                for coreq in get_coreqs(remaining.get(code, {})):
+                    if coreq in remaining and coreq not in semester_courses and coreq not in extra_coreqs:
+                        extra_coreqs.append(coreq)
+            semester_courses.extend(extra_coreqs)
+        else:
+            # Sort eligible by: required first, then unlock potential (desc), then credit hours (desc)
+            def sort_key(code):
+                c = remaining[code]
+                is_required = 1 if c.get('Requirement', '').lower() == 'required' else 0
+                unlocks = unlock_count.get(code, 0)
+                hrs = get_credit_hours(c)
+                return (-is_required, -unlocks, -hrs)
+
+            eligible.sort(key=sort_key)
+
+            semester_courses = []
+            semester_hours = 0
+
+            for code in eligible:
+                c = remaining[code]
+                hrs = get_credit_hours(c)
+
+                # Check if adding this course (+ its coreqs) fits
+                coreqs = get_coreqs(c)
+                coreq_hours = 0
+                coreq_codes = []
+                for coreq in coreqs:
+                    if coreq in remaining and coreq not in semester_courses:
+                        coreq_hours += get_credit_hours(remaining[coreq])
+                        coreq_codes.append(coreq)
+
+                total_add = hrs + coreq_hours
+                if semester_hours + total_add <= credits_per_semester + 1:  # +1 for slight flexibility
+                    semester_courses.append(code)
+                    semester_courses.extend(coreq_codes)
+                    semester_hours += total_add
+
+                if semester_hours >= credits_per_semester:
+                    break
+
+            # If nothing was picked (all remaining too big), force at least one
+            if not semester_courses and eligible:
+                semester_courses.append(eligible[0])
+
+        # Deduplicate while preserving order
+        seen = set()
+        unique_courses = []
+        for code in semester_courses:
+            if code not in seen and code in remaining:
+                seen.add(code)
+                unique_courses.append(code)
+        semester_courses = unique_courses
+
+        # Build semester output
+        sem_label = 'Next Semester' if semester_num == 1 else f'Semester {semester_num}'
+        course_list = []
+        for code in semester_courses:
+            c = remaining[code]
+            course_list.append({
+                'code': code,
+                'name': c.get('Course_Name', ''),
+                'creditHours': get_credit_hours(c),
+                'requirement': c.get('Requirement', 'required'),
+            })
+
+        total_hrs = sum(c['creditHours'] for c in course_list)
+        semesters.append({
+            'semester': semester_num,
+            'label': sem_label,
+            'courses': course_list,
+            'totalHours': total_hrs,
+        })
+
+        # Move these courses to planned_completed and remove from remaining
+        for code in semester_courses:
+            planned_completed.add(code)
+            remaining.pop(code, None)
+
+    return semesters
+
+
 def get_professor_offerings_for_course(course_code):
     # Looks in all tables for offerings of the given course code (subject_id + course_number)
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -195,8 +380,9 @@ if __name__ == "__main__":
 # Export functions for API use
 __all__ = [
     'get_department_courses',
-    'filter_eligible_courses_unique', 
+    'filter_eligible_courses_unique',
     'get_professor_offerings_for_course',
+    'generate_degree_plan',
     'extract_all_courses',
     'normalize_code'
 ]

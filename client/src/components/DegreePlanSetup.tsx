@@ -1,0 +1,337 @@
+import { useState, useEffect } from 'react';
+import { ArrowLeft, ArrowRight, BookOpen, Clock, Loader2, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface EligibleCourse {
+  code: string;
+  name: string;
+  creditHours: number;
+  requirement: string;
+}
+
+interface DegreePlanSetupProps {
+  completedCourses: string[];
+  department: string;
+  onPlanGenerated: (creditsPerSemester: number, selectedCourses: string[]) => void;
+  isLoading: boolean;
+  onBack: () => void;
+}
+
+const API_URL = 'http://127.0.0.1:8000';
+
+const CREDIT_OPTIONS = [12, 13, 14, 15, 16, 17, 18];
+
+export default function DegreePlanSetup({ completedCourses, department, onPlanGenerated, isLoading, onBack }: DegreePlanSetupProps) {
+  const [creditsPerSemester, setCreditsPerSemester] = useState(15);
+  const [eligibleCourses, setEligibleCourses] = useState<EligibleCourse[]>([]);
+  const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set());
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [stats, setStats] = useState<{ totalCourses: number; totalHours: number; completedCourses: number; completedHours: number } | null>(null);
+
+  // Fetch eligible courses on mount
+  useEffect(() => {
+    const fetchEligible = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/degree-plan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            completed_courses: completedCourses,
+            department,
+            credits_per_semester: creditsPerSemester,
+          }),
+        });
+        const data = await response.json();
+        if (data.success) {
+          setEligibleCourses(data.eligibleCourses || []);
+          setStats(data.stats || null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch eligible courses:', err);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+    fetchEligible();
+  }, [completedCourses, department]);
+
+  const selectedHours = Array.from(selectedCourses).reduce((sum, code) => {
+    const course = eligibleCourses.find(c => c.code === code);
+    return sum + (course?.creditHours || 0);
+  }, 0);
+
+  const toggleCourse = (code: string) => {
+    setSelectedCourses(prev => {
+      const next = new Set(prev);
+      if (next.has(code)) {
+        next.delete(code);
+      } else {
+        next.add(code);
+      }
+      return next;
+    });
+  };
+
+  const requiredCourses = eligibleCourses.filter(c => c.requirement === 'required');
+  const electiveCourses = eligibleCourses.filter(c => c.requirement === 'elective');
+
+  const overTarget = selectedHours > creditsPerSemester + 1;
+  const atTarget = selectedHours >= creditsPerSemester - 1 && selectedHours <= creditsPerSemester + 1;
+
+  const remainingHours = stats ? stats.totalHours - stats.completedHours : 0;
+  const estimatedSemesters = remainingHours > 0 ? Math.ceil(remainingHours / creditsPerSemester) : 0;
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      {/* Back */}
+      <button onClick={onBack} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors font-bold mb-6">
+        <ArrowLeft className="w-4 h-4" /> Back to Review
+      </button>
+
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
+        <h2 className="text-4xl font-bold text-white mb-3 flex items-center justify-center gap-3">
+          Plan Your Degree <Sparkles className="w-8 h-8 text-[#FF8040] fill-[#FF8040]" />
+        </h2>
+        <p className="text-white/60 text-lg">
+          Choose your pace and pick courses for next semester. We'll plan the rest.
+        </p>
+      </motion.div>
+
+      {/* Progress summary */}
+      {stats && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex flex-wrap items-center gap-3 mb-8 text-sm"
+        >
+          <span className="flex items-center gap-1.5 bg-[#0046FF]/10 border border-[#0046FF]/20 text-blue-300 font-semibold px-3 py-1.5 rounded-full">
+            {stats.completedCourses}/{stats.totalCourses} courses done
+          </span>
+          <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 text-white/60 font-semibold px-3 py-1.5 rounded-full">
+            {stats.completedHours}/{stats.totalHours} credit hours
+          </span>
+          <span className="flex items-center gap-1.5 bg-[#FF8040]/10 border border-[#FF8040]/20 text-orange-300 font-semibold px-3 py-1.5 rounded-full">
+            ~{estimatedSemesters} semesters left
+          </span>
+        </motion.div>
+      )}
+
+      {/* Credit hours picker */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-8"
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="bg-[#0046FF] p-2 rounded-xl">
+            <Clock className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white">Credit Hours Per Semester</h3>
+            <p className="text-white/40 text-sm">How many hours do you want to take each semester?</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          {CREDIT_OPTIONS.map(hrs => (
+            <button
+              key={hrs}
+              onClick={() => setCreditsPerSemester(hrs)}
+              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all border ${
+                creditsPerSemester === hrs
+                  ? 'bg-[#0046FF] border-[#0046FF] text-white shadow-lg shadow-[#0046FF]/20'
+                  : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20'
+              }`}
+            >
+              {hrs} hrs
+            </button>
+          ))}
+        </div>
+
+        {creditsPerSemester < 12 && (
+          <p className="text-amber-400 text-xs mt-3 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" /> Less than 12 hours may affect financial aid eligibility
+          </p>
+        )}
+      </motion.div>
+
+      {/* Course selector */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-8"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#FF8040] p-2 rounded-xl">
+              <BookOpen className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">Pick Courses for Next Semester</h3>
+              <p className="text-white/40 text-sm">Select the courses you want to take. We'll fill the remaining semesters automatically.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Running total bar */}
+        <div className="mb-5 bg-black/20 rounded-xl p-4 border border-white/5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white/60 text-sm font-semibold">Selected Hours</span>
+            <span className={`text-sm font-bold ${overTarget ? 'text-red-400' : atTarget ? 'text-emerald-400' : 'text-white/80'}`}>
+              {selectedHours} / {creditsPerSemester} hrs
+            </span>
+          </div>
+          <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+            <motion.div
+              className={`h-full rounded-full transition-colors ${overTarget ? 'bg-red-500' : atTarget ? 'bg-emerald-500' : 'bg-[#0046FF]'}`}
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(100, (selectedHours / creditsPerSemester) * 100)}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+          {overTarget && (
+            <p className="text-red-400 text-xs mt-2 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> Over your target — consider removing a course
+            </p>
+          )}
+        </div>
+
+        {loadingCourses ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 text-white/40 animate-spin" />
+          </div>
+        ) : (
+          <>
+            {/* Required courses */}
+            {requiredCourses.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-sm font-bold text-white/50 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[#0046FF]" />
+                  Required Courses
+                </h4>
+                <div className="grid md:grid-cols-2 gap-2">
+                  {requiredCourses.map(course => (
+                    <CoursePickCard
+                      key={course.code}
+                      course={course}
+                      selected={selectedCourses.has(course.code)}
+                      onToggle={() => toggleCourse(course.code)}
+                      accent="#0046FF"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Elective courses */}
+            {electiveCourses.length > 0 && (
+              <div>
+                <h4 className="text-sm font-bold text-white/50 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[#FF8040]" />
+                  Elective Courses
+                </h4>
+                <div className="grid md:grid-cols-2 gap-2">
+                  {electiveCourses.map(course => (
+                    <CoursePickCard
+                      key={course.code}
+                      course={course}
+                      selected={selectedCourses.has(course.code)}
+                      onToggle={() => toggleCourse(course.code)}
+                      accent="#FF8040"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {eligibleCourses.length === 0 && (
+              <p className="text-center text-white/40 py-8">No eligible courses found.</p>
+            )}
+          </>
+        )}
+      </motion.div>
+
+      {/* Generate button */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+        className="text-center"
+      >
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => onPlanGenerated(creditsPerSemester, Array.from(selectedCourses))}
+          disabled={isLoading}
+          className="inline-flex items-center gap-3 px-10 py-4 bg-[#FF8040] hover:bg-[#ff925c] text-white font-bold text-lg rounded-xl shadow-lg shadow-[#FF8040]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" /> Generating Plan...
+            </>
+          ) : (
+            <>
+              Plan My Degree <ArrowRight className="w-5 h-5" />
+            </>
+          )}
+        </motion.button>
+        <p className="text-white/30 text-xs mt-3">
+          {selectedCourses.size === 0
+            ? "We'll auto-pick the best courses for each semester"
+            : `${selectedCourses.size} courses selected for next semester`}
+        </p>
+      </motion.div>
+    </div>
+  );
+}
+
+function CoursePickCard({ course, selected, onToggle, accent }: {
+  course: EligibleCourse;
+  selected: boolean;
+  onToggle: () => void;
+  accent: string;
+}) {
+  return (
+    <motion.button
+      whileTap={{ scale: 0.98 }}
+      onClick={onToggle}
+      className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
+        selected
+          ? `border-[${accent}]/50 bg-[${accent}]/10 shadow-sm`
+          : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20'
+      }`}
+      style={selected ? { borderColor: `${accent}60`, backgroundColor: `${accent}15` } : {}}
+    >
+      {/* Check circle */}
+      <div
+        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+          selected ? 'border-transparent' : 'border-white/20'
+        }`}
+        style={selected ? { backgroundColor: accent } : {}}
+      >
+        <AnimatePresence>
+          {selected && (
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+              <Check className="w-3 h-3 text-white" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Course info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-white font-bold text-sm">{course.code}</span>
+          <span className="text-white/30 text-xs bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+            {course.creditHours} hrs
+          </span>
+        </div>
+        <p className="text-white/45 text-xs truncate">{course.name}</p>
+      </div>
+    </motion.button>
+  );
+}

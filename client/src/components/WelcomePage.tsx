@@ -1,28 +1,29 @@
-import { ArrowRight, GraduationCap, Sparkles, BookOpen, Star } from 'lucide-react';
+import { ArrowRight, GraduationCap, Sparkles, Star, LogIn, Calendar, Upload, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface WelcomePageProps {
   onGetStarted: () => void;
+  onSignIn: () => void;
 }
 
-export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
+export default function WelcomePage({ onGetStarted, onSignIn }: WelcomePageProps) {
   return (
     <div className="relative min-h-[80vh] flex flex-col items-center justify-center text-center overflow-hidden">
-      
-      <motion.div 
+
+      <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         className="max-w-4xl mx-auto px-6 relative z-10"
       >
-        <motion.div 
+        <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-[#FF8040] font-bold text-sm mb-8 backdrop-blur-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FF8040]/10 border border-[#FF8040]/20 text-[#FF8040] font-bold text-sm mb-8 backdrop-blur-sm"
         >
           <Sparkles className="w-4 h-4 fill-[#FF8040]" />
-          <span className="text-white/90">Exclusively for UTA Students</span>
+          <span className="text-white/90">For UTA Students</span>
         </motion.div>
 
         <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight mb-6 leading-tight">
@@ -32,48 +33,134 @@ export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
           </span>
         </h1>
 
-        <p className="text-xl text-white/70 mb-10 max-w-3xl mx-auto leading-relaxed font-light">
-          Stop guessing. We analyze your <strong>UTA transcript</strong> to identify the classes you've already completed, determine exactly what you are eligible to take next, and match you with the best professors for your learning style.
+        <p className="text-lg md:text-xl text-white/70 mb-12 max-w-2xl mx-auto leading-relaxed font-light">
+          Upload your transcript. We'll figure out what you can take next and find the best professors for each course.
         </p>
 
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onGetStarted}
-          className="group relative inline-flex items-center gap-3 px-10 py-5 bg-[#FF8040] text-white text-xl font-bold rounded-2xl shadow-xl shadow-[#FF8040]/20 hover:shadow-2xl hover:bg-[#ff925c] transition-all"
+        {/* How it works — quick 3-step visual */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-0 mb-12 max-w-xl mx-auto"
         >
-          Get Started Now
-          <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-        </motion.button>
+          <Step num="1" label="Upload Transcript" icon={<Upload className="w-4 h-4" />} />
+          <div className="hidden sm:block w-8 h-px bg-white/20" />
+          <Step num="2" label="Set Preferences" icon={<Star className="w-4 h-4" />} />
+          <div className="hidden sm:block w-8 h-px bg-white/20" />
+          <Step num="3" label="Get Matched" icon={<CheckCircle2 className="w-4 h-4" />} />
+        </motion.div>
 
-        {/* Dark Glass Feature Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mt-20 text-left">
-          <div className="bg-white/5 backdrop-blur-md p-6 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors">
-            <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-4 text-[#FF8040]">
-              <GraduationCap className="w-6 h-6" />
+        {/* CTA buttons — both equally prominent */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4"
+        >
+          <motion.button
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={onGetStarted}
+            className="group inline-flex items-center gap-3 px-10 py-4 bg-[#FF8040] text-white text-lg font-bold rounded-2xl shadow-xl shadow-[#FF8040]/25 hover:shadow-2xl hover:bg-[#ff925c] transition-all"
+          >
+            Continue as Guest
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={onSignIn}
+            className="group inline-flex items-center gap-3 px-10 py-4 bg-[#0046FF] text-white text-lg font-bold rounded-2xl shadow-xl shadow-[#0046FF]/25 hover:shadow-2xl hover:bg-[#1a5cff] transition-all"
+          >
+            <LogIn className="w-5 h-5" />
+            Sign In
+          </motion.button>
+        </motion.div>
+
+        <p className="text-white/40 text-sm mb-16">
+          Sign in to plan your entire degree. Guests get course and professor recommendations for what to take next.
+        </p>
+
+        {/* Feature cards — what each mode offers */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="grid md:grid-cols-2 gap-5 text-left max-w-3xl mx-auto"
+        >
+          {/* Guest card */}
+          <div className="bg-white/[0.06] backdrop-blur-md p-6 rounded-2xl border border-white/10 hover:border-[#FF8040]/40 transition-all group">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-[#FF8040]/15 border border-[#FF8040]/20 rounded-xl flex items-center justify-center">
+                <Star className="w-5 h-5 text-[#FF8040]" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Guest Mode</h3>
+                <p className="text-white/40 text-xs">No account needed</p>
+              </div>
             </div>
-            <h3 className="text-lg font-bold text-white mb-2">Transcript Analysis</h3>
-            <p className="text-white/60 text-sm">We automatically detect your completed courses to filter out what you don't need.</p>
+            <ul className="space-y-2.5">
+              <FeatureItem text="Upload transcript & detect completed courses" />
+              <FeatureItem text="See eligible classes based on prerequisites" />
+              <FeatureItem text="Get professor recommendations matched to your style" />
+            </ul>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-md p-6 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors">
-            <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-4 text-[#FF8040]">
-              <Star className="w-6 h-6" />
+          {/* Signed-in card */}
+          <div className="bg-white/[0.06] backdrop-blur-md p-6 rounded-2xl border border-white/10 hover:border-[#0046FF]/40 transition-all group">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-[#0046FF]/15 border border-[#0046FF]/20 rounded-xl flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-[#0046FF]" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Degree Planning</h3>
+                <p className="text-white/40 text-xs">Sign in required</p>
+              </div>
             </div>
-            <h3 className="text-lg font-bold text-white mb-2">Professor Matching</h3>
-            <p className="text-white/60 text-sm">Find teachers who match your vibe—easy grader, caring, or strict.</p>
+            <ul className="space-y-2.5">
+              <FeatureItem text="Everything in guest mode, plus..." accent />
+              <FeatureItem text="Pick your courses & set credit hours per semester" accent />
+              <FeatureItem text="Auto-generate a full semester-by-semester degree plan" accent />
+            </ul>
           </div>
+        </motion.div>
 
-          <div className="bg-white/5 backdrop-blur-md p-6 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors">
-            <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-4 text-[#FF8040]">
-              <BookOpen className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-white mb-2">Smart Eligibility</h3>
-            <p className="text-white/60 text-sm">We only show classes you are eligible for based on prerequisites.</p>
-          </div>
-        </div>
+        {/* Bottom */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.7 }}
+          className="flex items-center justify-center gap-2 mt-12 text-xs text-white/30"
+        >
+          <GraduationCap className="w-3.5 h-3.5" />
+          <span>Built for UTA students</span>
+        </motion.div>
 
       </motion.div>
     </div>
+  );
+}
+
+function Step({ num, label, icon }: { num: string; label: string; icon: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/10">
+      <div className="w-6 h-6 rounded-full bg-[#FF8040]/20 text-[#FF8040] text-xs font-bold flex items-center justify-center flex-shrink-0">
+        {num}
+      </div>
+      <span className="text-white/60 text-sm font-medium flex items-center gap-1.5">
+        {icon} {label}
+      </span>
+    </div>
+  );
+}
+
+function FeatureItem({ text, accent }: { text: string; accent?: boolean }) {
+  return (
+    <li className="flex items-start gap-2">
+      <CheckCircle2 className={`w-4 h-4 mt-0.5 flex-shrink-0 ${accent ? 'text-[#0046FF]/70' : 'text-[#FF8040]/60'}`} />
+      <span className="text-white/60 text-sm">{text}</span>
+    </li>
   );
 }
