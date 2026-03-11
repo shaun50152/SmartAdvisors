@@ -1,13 +1,17 @@
 # SmartAdvisors
 
-A UTA course recommendation and degree planning app. Upload your transcript, choose your major, set preferences, and get personalized professor and course recommendations — or sign in with Google to generate a full semester-by-semester degree plan.
+A UTA course recommendation and degree planning app. Upload your transcript, choose your college and degree, set preferences, and get personalized professor and course recommendations — or sign in with Google to generate a full semester-by-semester degree plan.
 
-## Supported Majors
-- Computer Science and Engineering (CSE)
+## Supported Degrees
+
+### College of Engineering
+- Computer Science (CSE)
 - Civil Engineering (CE)
 - Electrical Engineering (EE)
 - Mechanical/Aerospace Engineering (MAE)
 - Industrial Engineering (IE)
+
+> More colleges coming soon (Business, Science, Nursing, Liberal Arts). See `client/src/config/colleges.ts` to add new ones.
 
 ---
 
@@ -19,16 +23,21 @@ SmartAdvisors/
 │   ├── src/
 │   │   ├── main.tsx                 # Entry point — wraps app in GoogleOAuthProvider
 │   │   ├── App.tsx                  # Main app orchestrator (step flow + auth state)
+│   │   ├── config/
+│   │   │   └── colleges.ts          # Shared college/degree config (single source of truth)
 │   │   └── components/
 │   │       ├── WelcomePage.tsx       # Landing page (guest vs. sign in)
 │   │       ├── LoginPage.tsx         # Google Sign-In + guest option
 │   │       ├── DisclaimerModal.tsx   # Disclaimer shown on first load
-│   │       ├── UploadScreen.tsx      # Transcript upload + major selection
+│   │       ├── UploadScreen.tsx      # Transcript upload + college/degree dropdowns
 │   │       ├── TranscriptReview.tsx  # Review parsed courses before continuing
-│   │       ├── PreferenceForm.tsx    # Student preference toggles (guest flow)
+│   │       ├── PreferenceForm.tsx    # Student preference toggles (both flows)
 │   │       ├── RecommendationDashboard.tsx  # Professor + course recommendations (guest)
-│   │       ├── DegreePlanSetup.tsx   # Course picker + credit hours (signed-in flow)
-│   │       └── SemesterPlanView.tsx  # Full semester-by-semester plan (signed-in flow)
+│   │       ├── DegreePlanSetup.tsx   # Course picker + elective selection + credit hours (signed-in)
+│   │       ├── SemesterPlanView.tsx  # Full semester-by-semester plan (signed-in)
+│   │       ├── WelcomeBack.tsx       # Returning user dashboard with plan summary
+│   │       ├── ProcessingOverlay.tsx # Reusable loading overlay with animated steps
+│   │       └── Layout.tsx           # Top navbar (logo, user profile, sign out)
 │   ├── .env                         # Local only — NOT committed (see setup below)
 │   ├── package.json
 │   └── vite.config.ts
@@ -42,7 +51,7 @@ SmartAdvisors/
 │   │   ├── models.py                # SQLAlchemy models (professors.db)
 │   │   └── scripts/
 │   │       ├── parse_transcript.py          # PDF transcript parser
-│   │       ├── recommendation_engine.py     # Core algorithm
+│   │       ├── recommendation_engine.py     # Core algorithm + course equivalences
 │   │       ├── load_degree_plan.py          # Loads CSV degree plans into classes.db
 │   │       └── scrape_uta_catalog.py        # Tool to generate CSVs from UTA catalog
 │   └── data/
@@ -115,6 +124,8 @@ echo "VITE_GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com" > cl
 ```cmd
 echo VITE_GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com > client\.env
 ```
+
+> **Note:** Without this file, the guest flow still works — but Google Sign-In won't.
 
 ---
 
@@ -200,24 +211,32 @@ python3 run.py
 
 ```
 WelcomePage
-├── Continue as Guest → UploadScreen → TranscriptReview → PreferenceForm → RecommendationDashboard
-└── Sign In (Google) → LoginPage → UploadScreen → TranscriptReview → DegreePlanSetup → SemesterPlanView
+├── Continue as Guest
+│   └── UploadScreen → TranscriptReview → PreferenceForm → RecommendationDashboard
+└── Sign In (Google) → LoginPage
+    ├── New User
+    │   └── UploadScreen → TranscriptReview → PreferenceForm → DegreePlanSetup → SemesterPlanView
+    └── Returning User
+        └── WelcomeBack (shows saved plan summary, progress bar, quick actions)
 ```
 
 ### Guest Mode
 1. Upload transcript PDF
-2. Select major
+2. Select college → select degree (two cascading dropdowns)
 3. Review parsed courses
-4. Set preferences (extra credit, clear grading, etc.)
+4. Set professor preferences (extra credit, clear grading, etc.)
 5. Get recommended courses + ranked professors
 
 ### Signed-In Mode (Google)
 1. Sign in with Google
 2. Upload transcript PDF
-3. Select major
+3. Select college → select degree
 4. Review parsed courses
-5. Pick courses for next semester and set credit hour target
-6. Get a full semester-by-semester degree plan to graduation
+5. Set professor preferences
+6. Choose elective focus areas (security, AI/ML, etc.) and pick courses for next semester
+7. Set credit hour target and semester start
+8. Get a full semester-by-semester degree plan to graduation
+9. Plan is saved — returning users see a dashboard with progress and quick actions
 
 ---
 
@@ -225,10 +244,11 @@ WelcomePage
 
 ### Algorithm Overview
 - Parses transcript PDF to extract completed courses
-- Expands completed set with transitive prerequisites
+- Expands completed set with transitive prerequisites and course equivalences (e.g., MATH 3313 ↔ IE 3301)
 - Filters degree plan to find courses with all prerequisites satisfied
 - Looks up professors from grade distribution and RateMyProfessors data
 - Scores professors based on student preferences (extra credit, difficulty, tags, etc.)
+- For degree plans: uses greedy topological scheduling to generate semester-by-semester plans
 
 ### Scoring Signals
 - `quality_rating` — primary base score (0–5)
@@ -245,24 +265,36 @@ All databases are included in the repo under `server/data/`. No external databas
 
 | Database | Contents |
 |---|---|
-| `classes.db` | Degree plan tables for each major |
+| `classes.db` | Degree plan tables for each major (ClassesForCE, ClassesForCSE, etc.) |
 | `grades.sqlite` | UTA grade distribution data (course offerings, GPAs, instructor names) |
 | `professors.db` | RateMyProfessors data (ratings, difficulty, tags) |
 
 ### Updating Degree Plans
 
+To reload a specific degree plan from its CSV:
 ```bash
 cd server
 source venv/bin/activate
-python3 -c "from app.scripts.load_degree_plan import load_all; load_all()"
+python3 app/scripts/load_degree_plan.py CSE   # or CE, EE, IE, MAE
+```
+
+To reload all degree plans:
+```bash
+python3 app/scripts/load_degree_plan.py
 ```
 
 CSV format:
 ```
 Formal Name,Course Name,Prerequisites,Corequisites,Requirement
 CSE 1310,Introduction to Computers and Programming,[None],[None],required
-CSE 4303,Computer Graphics,"CSE 3380, CSE 3318, MATH 3330",[None],elective
+CSE 4303,Computer Graphics,"CSE 3380, CSE 3318",[None],elective
 ```
+
+### Adding a New Degree
+1. Add the college/degree entry in `client/src/config/colleges.ts`
+2. Create a CSV in `server/data/` (e.g., `ACCT Degree Plan CSV.csv`)
+3. Run `python3 app/scripts/load_degree_plan.py ACCT`
+4. The rest of the app picks it up automatically
 
 ---
 
@@ -313,7 +345,12 @@ Generate a full semester-by-semester degree plan (signed-in flow).
   "completed_courses": ["CSE 1310", "CSE 1320"],
   "department": "CSE",
   "credits_per_semester": 15,
-  "selected_next_semester": ["CSE 2312", "CSE 2315"]
+  "selected_next_semester": ["CSE 2312", "CSE 2315"],
+  "chosen_electives": ["CSE 4308", "CSE 4380"],
+  "preferences": { "extraCredit": true },
+  "start_semester": "Fall",
+  "start_year": 2025,
+  "include_summer": false
 }
 ```
 
@@ -325,10 +362,12 @@ Generate a full semester-by-semester degree plan (signed-in flow).
   "totalSemesters": 6,
   "totalRemainingHours": 78,
   "eligibleCourses": [...],
+  "allElectives": [...],
+  "requiredElectiveCount": 7,
   "stats": {
-    "totalCourses": 45,
+    "totalCourses": 43,
     "completedCourses": 12,
-    "totalHours": 130,
+    "totalHours": 128,
     "completedHours": 38
   }
 }
