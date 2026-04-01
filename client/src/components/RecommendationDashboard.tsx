@@ -492,7 +492,7 @@ export default function RecommendationDashboard({ userData, onBack }: Recommenda
                 <span className="text-sm font-bold text-white/50 bg-white/10 px-3 py-1 rounded-full">{visibleClasses.length} courses</span>
               </div>
               <p className="text-white/40 text-sm ml-12 mb-1">
-                Based on your transcript, these are the required courses you're eligible to take next.
+                Based on your unofficial transcript, these are the required courses you're eligible to take next.
               </p>
               {userData.stats && (
                 <p className="text-white/50 text-sm ml-12 mb-4">
@@ -523,7 +523,7 @@ export default function RecommendationDashboard({ userData, onBack }: Recommenda
                   <span className="text-sm font-bold text-[#FF8040] bg-[#FF8040]/20 border border-[#FF8040]/30 px-3 py-1 rounded-full">{visibleElectives.length} courses</span>
                 </div>
                 <p className="text-white/40 text-sm ml-12 mb-1">
-                  Based on your transcript, these are the elective courses you're eligible to take.
+                  Based on your unofficial transcript, these are the elective courses you're eligible to take.
                 </p>
                 {userData.stats && (
                   <p className="text-white/50 text-sm ml-12">

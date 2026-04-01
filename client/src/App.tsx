@@ -195,7 +195,6 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
   };
 
   const handleSignOut = () => {
-    if (googleUser) localStorage.removeItem(STORAGE_KEY(googleUser.email));
     setStep(0);
     setShowLogin(false);
     setIsLoggedIn(false);

@@ -23,7 +23,7 @@ export default function TranscriptReview({ courses, onNext, onBack }: Transcript
             <div className="w-16 h-16 bg-[#0046FF]/20 text-[#0046FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <BookOpen className="w-8 h-8" />
             </div>
-            <h2 className="text-2xl font-bold text-white">Transcript Verified</h2>
+            <h2 className="text-2xl font-bold text-white">Unofficial Transcript Verified</h2>
             <p className="text-white/60 mt-1">We found <span className="font-bold text-[#0046FF]">{courses.length} courses</span> in your history.</p>
         </div>
 
@@ -40,7 +40,7 @@ export default function TranscriptReview({ courses, onNext, onBack }: Transcript
                     ))
                 ) : (
                     <div className="col-span-3 text-center py-8 text-white/30 italic">
-                        No courses found. Are you sure this is a transcript?
+                        No courses found. Are you sure this is an unofficial transcript?
                     </div>
                 )}
             </div>

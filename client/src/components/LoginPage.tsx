@@ -1,4 +1,4 @@
-import { ArrowLeft, Compass } from 'lucide-react';
+import { ArrowLeft, Compass, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useGoogleLogin } from '@react-oauth/google';
 
@@ -174,6 +174,14 @@ export default function LoginPage({ googleOAuthEnabled, onGuestContinue, onLogin
           <p className="text-center text-white/30 text-xs mt-4">
             Guest users get professor recommendations. Sign in for full degree planning.
           </p>
+
+          {/* Privacy note */}
+          <div className="mt-5 flex items-start gap-2 bg-emerald-500/5 border border-emerald-500/15 rounded-xl p-3">
+            <Shield className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+            <p className="text-white/40 text-xs leading-relaxed">
+              We only access your name and profile picture. Your data is stored in your browser only — nothing is saved on our servers.
+            </p>
+          </div>
         </div>
       </motion.div>
     </div>

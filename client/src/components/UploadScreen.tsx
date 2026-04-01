@@ -29,7 +29,7 @@ export default function UploadScreen({ file, department, onFileChange, setDepart
     <div className="max-w-xl mx-auto">
       <ProcessingOverlay
         isVisible={isLoading}
-        title="Analyzing Your Transcript"
+        title="Analyzing Your Unofficial Transcript"
         steps={['Reading your PDF...', 'Extracting course data...', 'Matching completed courses...']}
         icon="transcript"
       />
@@ -47,7 +47,7 @@ export default function UploadScreen({ file, department, onFileChange, setDepart
         </div>
         
         <h1 className="text-3xl font-bold text-white mb-3">
-            {file ? "Transcript Loaded!" : "Upload Transcript"}
+            {file ? "Unofficial Transcript Loaded!" : "Upload Unofficial Transcript"}
         </h1>
         <p className="text-white/60 mb-8 text-lg">
             {file ? "We are ready to analyze your courses." : "We need your unofficial transcript (PDF) to see what you've taken."}
@@ -59,7 +59,7 @@ export default function UploadScreen({ file, department, onFileChange, setDepart
                 <Shield className="w-4 h-4" /> Your Privacy is Protected
             </h4>
             <p className="text-white/70 text-sm leading-relaxed">
-                Your transcript is processed locally in your browser. We do not store, upload, or share any personal information, grades, or academic records.
+                Your unofficial transcript is uploaded securely for parsing, then immediately deleted from our servers. We only extract your course list — no grades, GPA, or personal information is stored. All plan data stays in your browser.
             </p>
         </div>
 
