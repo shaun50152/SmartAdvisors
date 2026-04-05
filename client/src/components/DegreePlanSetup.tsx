@@ -16,6 +16,12 @@ interface ElectiveCourse {
   creditHours: number;
 }
 
+interface ElectiveGroup {
+  group: string;
+  hoursRequired: number;
+  courses: ElectiveCourse[];
+}
+
 interface DegreePlanSetupProps {
   completedCourses: string[];
   department: string;
@@ -57,8 +63,8 @@ export default function DegreePlanSetup({ completedCourses, department, onPlanGe
   const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set());
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [stats, setStats] = useState<{ totalCourses: number; totalHours: number; completedCourses: number; completedHours: number } | null>(null);
-  const [allElectives, setAllElectives] = useState<ElectiveCourse[]>([]);
-  const [requiredElectiveCount, setRequiredElectiveCount] = useState(0);
+  const [, setAllElectives] = useState<ElectiveCourse[]>([]);
+  const [electiveGroups, setElectiveGroups] = useState<ElectiveGroup[]>([]);
   const [chosenElectives, setChosenElectives] = useState<Set<string>>(new Set());
 
   // Fetch eligible courses on mount
@@ -79,7 +85,7 @@ export default function DegreePlanSetup({ completedCourses, department, onPlanGe
           setEligibleCourses(data.eligibleCourses || []);
           setStats(data.stats || null);
           setAllElectives(data.allElectives || []);
-          setRequiredElectiveCount(data.requiredElectiveCount || 0);
+          setElectiveGroups(data.electiveGroups || []);
         }
       } catch (err) {
         console.error('Failed to fetch eligible courses:', err);
@@ -113,8 +119,26 @@ export default function DegreePlanSetup({ completedCourses, department, onPlanGe
     });
   };
 
-  const electivesNeeded = requiredElectiveCount;
   const electivesPicked = chosenElectives.size;
+
+  // Calculate hours selected per elective group
+  const selectedHoursByGroup: Record<string, number> = {};
+  for (const group of electiveGroups) {
+    let hrs = 0;
+    for (const c of group.courses) {
+      if (chosenElectives.has(c.code)) hrs += c.creditHours;
+    }
+    selectedHoursByGroup[group.group] = hrs;
+  }
+
+  // Check if all groups are satisfied
+  const allGroupsSatisfied = electiveGroups.length === 0 || electiveGroups.every(
+    g => g.hoursRequired === 0 || selectedHoursByGroup[g.group] >= g.hoursRequired
+  );
+
+  // Format group name for display
+  const formatGroupName = (name: string) =>
+    name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
   const requiredCourses = eligibleCourses.filter(c => c.requirement === 'required');
   const electiveCourses = eligibleCourses.filter(
@@ -170,8 +194,8 @@ export default function DegreePlanSetup({ completedCourses, department, onPlanGe
         </motion.div>
       )}
 
-      {/* Choose Your Electives */}
-      {!loadingCourses && allElectives.length > 0 && electivesNeeded > 0 && (
+      {/* Choose Your Electives — grouped by elective type */}
+      {!loadingCourses && electiveGroups.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -185,61 +209,88 @@ export default function DegreePlanSetup({ completedCourses, department, onPlanGe
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white">Choose Your Electives</h3>
-                <p className="text-white/40 text-sm">Pick at least {electivesNeeded} elective{electivesNeeded !== 1 ? 's' : ''} you want in your degree plan.</p>
+                <p className="text-white/40 text-sm">Select electives from each group to meet your degree requirements.</p>
               </div>
             </div>
             <span className={`text-sm font-bold px-3 py-1.5 rounded-full border ${
-              electivesPicked >= electivesNeeded
+              allGroupsSatisfied
                 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
                 : 'text-[#FF8040] bg-[#FF8040]/10 border-[#FF8040]/20'
             }`}>
-              {electivesPicked} / {electivesNeeded} selected
+              {allGroupsSatisfied ? 'All groups satisfied' : `${electivesPicked} selected`}
             </span>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-2">
-            {allElectives.map(elective => (
-              <motion.button
-                key={elective.code}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => toggleElective(elective.code)}
-                className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
-                  chosenElectives.has(elective.code)
-                    ? 'border-[#FF8040]/50 bg-[#FF8040]/10 shadow-sm'
-                    : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                    chosenElectives.has(elective.code) ? 'border-transparent bg-[#FF8040]' : 'border-white/20'
-                  }`}
-                >
-                  <AnimatePresence>
-                    {chosenElectives.has(elective.code) && (
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                        <Check className="w-3 h-3 text-white" />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-white font-bold text-sm">{elective.code}</span>
-                    <span className="text-white/30 text-xs bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
-                      {elective.creditHours} hrs
+          <div className="space-y-6">
+            {electiveGroups.map(group => {
+              const groupHrs = selectedHoursByGroup[group.group] || 0;
+              const isSatisfied = group.hoursRequired > 0 && groupHrs >= group.hoursRequired;
+              return (
+                <div key={group.group}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1 h-4 rounded-full bg-[#FF8040]" />
+                    <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                      {formatGroupName(group.group)} Electives
+                    </h4>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                      isSatisfied
+                        ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                        : 'text-white/40 bg-white/5 border-white/10'
+                    }`}>
+                      {groupHrs}/{group.hoursRequired} hrs
                     </span>
                   </div>
-                  <p className="text-white/45 text-xs truncate mt-0.5">{elective.name}</p>
+                  {group.hoursRequired > 0 && (
+                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-3">
+                      <motion.div
+                        className={`h-full rounded-full ${isSatisfied ? 'bg-emerald-500' : 'bg-[#FF8040]'}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, (groupHrs / group.hoursRequired) * 100)}%` }}
+                        transition={{ duration: 0.3 }}
+                      />
+                    </div>
+                  )}
+                  <div className="grid md:grid-cols-2 gap-2">
+                    {group.courses.map(elective => (
+                      <motion.button
+                        key={elective.code}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => toggleElective(elective.code)}
+                        className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
+                          chosenElectives.has(elective.code)
+                            ? 'border-[#FF8040]/50 bg-[#FF8040]/10 shadow-sm'
+                            : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20'
+                        }`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                            chosenElectives.has(elective.code) ? 'border-transparent bg-[#FF8040]' : 'border-white/20'
+                          }`}
+                        >
+                          <AnimatePresence>
+                            {chosenElectives.has(elective.code) && (
+                              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                                <Check className="w-3 h-3 text-white" />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-white font-bold text-sm">{elective.code}</span>
+                            <span className="text-white/30 text-xs bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+                              {elective.creditHours} hrs
+                            </span>
+                          </div>
+                          <p className="text-white/45 text-xs truncate mt-0.5">{elective.name}</p>
+                        </div>
+                      </motion.button>
+                    ))}
+                  </div>
                 </div>
-              </motion.button>
-            ))}
+              );
+            })}
           </div>
-
-          {electivesPicked < electivesNeeded && electivesPicked > 0 && (
-            <p className="text-amber-400 text-xs mt-3 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" /> Pick {electivesNeeded - electivesPicked} more to meet your degree requirements
-            </p>
-          )}
         </motion.div>
       )}
 
@@ -247,7 +298,7 @@ export default function DegreePlanSetup({ completedCourses, department, onPlanGe
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: allElectives.length > 0 ? 0.18 : 0.12 }}
+        transition={{ delay: electiveGroups.length > 0 ? 0.18 : 0.12 }}
         className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-8"
       >
         <div className="flex items-center gap-3 mb-5">
@@ -469,7 +520,7 @@ export default function DegreePlanSetup({ completedCourses, department, onPlanGe
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => onPlanGenerated(creditsPerSemester, Array.from(selectedCourses), startSemester, startYear, includeSummer, Array.from(chosenElectives))}
-          disabled={isLoading || (electivesNeeded > 0 && electivesPicked < electivesNeeded)}
+          disabled={isLoading || (electiveGroups.length > 0 && !allGroupsSatisfied)}
           className="inline-flex items-center gap-3 px-10 py-4 bg-[#FF8040] hover:bg-[#ff925c] text-white font-bold text-lg rounded-xl shadow-lg shadow-[#FF8040]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
@@ -483,8 +534,8 @@ export default function DegreePlanSetup({ completedCourses, department, onPlanGe
           )}
         </motion.button>
         <p className="text-white/30 text-xs mt-3">
-          {electivesNeeded > 0 && electivesPicked < electivesNeeded
-            ? `Select ${electivesNeeded - electivesPicked} more elective${electivesNeeded - electivesPicked !== 1 ? 's' : ''} to continue`
+          {electiveGroups.length > 0 && !allGroupsSatisfied
+            ? 'Select electives to meet all group requirements above'
             : selectedCourses.size === 0
               ? "We'll auto-pick the best courses for each semester"
               : `${selectedCourses.size} courses selected for ${startSemester} ${startYear}`}
