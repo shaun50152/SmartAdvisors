@@ -45,11 +45,19 @@ export default function TranscriptReview({ courses, onNext, onBack }: Transcript
                 )}
             </div>
 
-            <button 
+            <button
                 onClick={onNext}
-                className="w-full bg-[#0046FF] hover:bg-[#0036CC] text-white font-bold py-4 rounded-xl shadow-lg shadow-[#0046FF]/30 transition-all flex items-center justify-center gap-2 text-lg group"
+                disabled={courses.length === 0}
+                className={`w-full font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-lg group ${
+                  courses.length === 0
+                    ? 'bg-white/10 text-white/30 cursor-not-allowed shadow-none'
+                    : 'bg-[#0046FF] hover:bg-[#0036CC] text-white shadow-[#0046FF]/30'
+                }`}
             >
-                Continue to Preferences <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {courses.length === 0
+                  ? 'Upload a valid unofficial transcript to continue'
+                  : <>Continue to Preferences <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>
+                }
             </button>
         </div>
       </motion.div>

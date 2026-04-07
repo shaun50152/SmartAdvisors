@@ -55,7 +55,13 @@ export default function Layout({ children, onLogoClick, user, onSignOut, onSignI
               <>
                 <div className="flex items-center gap-2">
                   {user.picture ? (
-                    <img src={user.picture} alt={user.name} className="w-7 h-7 rounded-full border border-white/20" referrerPolicy="no-referrer" />
+                    <img
+                      src={user.picture}
+                      alt={user.name}
+                      className="w-7 h-7 rounded-full border border-white/20"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
                   ) : (
                     <div className="w-7 h-7 rounded-full bg-[var(--accent-blue)]/30 border border-white/10 flex items-center justify-center">
                       <span className="text-xs font-bold text-white">{user.name[0]}</span>

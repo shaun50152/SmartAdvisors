@@ -57,6 +57,7 @@ export default function WelcomeBack({
                 alt={userName}
                 className="w-16 h-16 rounded-2xl border-2 border-white/20 shadow-lg"
                 referrerPolicy="no-referrer"
+                onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).style.display = 'none'; }}
               />
             ) : (
               <div className="w-16 h-16 rounded-2xl bg-[#0046FF]/30 border border-white/10 flex items-center justify-center">

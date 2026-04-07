@@ -253,6 +253,8 @@ def _build_professors_for_course(code, user_prefs=None):
     return professors_list[:3]
 
 
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
 @api_bp.route('/parse-transcript', methods=['POST'])
 def parse_transcript():
     print("\n=== PARSE TRANSCRIPT ROUTE CALLED ===", file=sys.stderr)
@@ -265,9 +267,21 @@ def parse_transcript():
         if not file or file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
 
+        # Validate file extension
+        fname = file.filename or ''
+        if not fname.lower().endswith('.pdf'):
+            return jsonify({'error': 'Please upload a PDF file.'}), 400
+
+        # Check file size
+        file.seek(0, 2)
+        size = file.tell()
+        file.seek(0)
+        if size > MAX_FILE_SIZE:
+            return jsonify({'error': 'File too large. Please upload a PDF under 5 MB.'}), 400
+
         temp_dir = tempfile.gettempdir()
-        fname = secure_filename(file.filename or "temp.pdf")
-        temp_path = os.path.join(temp_dir, fname)
+        safe_name = secure_filename(fname)
+        temp_path = os.path.join(temp_dir, safe_name)
         file.save(temp_path)
 
         courses = extract_all_courses(temp_path)
@@ -275,11 +289,18 @@ def parse_transcript():
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
+        if not courses:
+            return jsonify({
+                'success': True,
+                'courses': [],
+                'warning': 'No courses were found. Make sure this is a text-based unofficial transcript from MyMav (not a scanned image).'
+            }), 200
+
         return jsonify({'success': True, 'courses': courses}), 200
 
     except Exception as e:
         traceback.print_exc(file=sys.stderr)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Could not process this PDF. Please make sure it is a valid unofficial transcript.'}), 500
 
 
 @api_bp.route('/recommendations', methods=['POST'])
@@ -486,7 +507,7 @@ def get_recommendations():
 
     except Exception as e:
         traceback.print_exc(file=sys.stderr)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Could not generate recommendations. Please try again.'}), 500
 
 
 @api_bp.route('/degree-plan', methods=['POST'])
@@ -496,7 +517,12 @@ def degree_plan():
         data = request.get_json(force=True)
         department = data.get('department', 'CS')
         completed_courses = data.get('completed_courses', [])
-        credits_per_semester = data.get('credits_per_semester', 15)
+        try:
+            credits_per_semester = int(data.get('credits_per_semester', 15))
+        except (ValueError, TypeError):
+            credits_per_semester = 15
+        credits_per_semester = max(3, min(21, credits_per_semester))
+
         selected_next = data.get('selected_next_semester', None)
         start_semester = data.get('start_semester', None)
         start_year = data.get('start_year', None)
@@ -668,4 +694,4 @@ def degree_plan():
 
     except Exception as e:
         traceback.print_exc(file=sys.stderr)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Could not generate degree plan. Please try again.'}), 500

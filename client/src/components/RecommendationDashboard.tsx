@@ -85,7 +85,7 @@ function CourseCard({ classData, index, getDifficultyColor, getTagStyle, accentC
             )}
           </div>
           <span className="text-xs font-bold text-white px-2 py-1 rounded-full border border-white/10" style={{ background: accentColor }}>
-            {classData.professors.length} Options
+            {classData.professors?.length || 0} Options
           </span>
         </div>
         <p className="text-white/60 font-medium text-sm truncate" title={classData.courseName}>
@@ -98,7 +98,12 @@ function CourseCard({ classData, index, getDifficultyColor, getTagStyle, accentC
         )}
       </div>
       <div className="overflow-y-auto p-4 space-y-4 custom-scrollbar flex-grow print-prof-list">
-        {classData.professors.map((professor, profIndex) => {
+        {(!classData.professors || classData.professors.length === 0) && (
+          <div className="text-center py-6 text-white/30 italic text-sm">
+            No professor data available for this course yet.
+          </div>
+        )}
+        {(classData.professors || []).map((professor, profIndex) => {
           const isBestMatch = profIndex === 0;
           return (
             <motion.div
@@ -175,11 +180,11 @@ export default function RecommendationDashboard({ userData, onBack }: Recommenda
     }
   }, [userData]);
 
-  const visibleClasses = classes.filter((c) => c.professors.length > 0);
-  const visibleElectives = electiveClasses.filter((c) => c.professors.length > 0);
+  const visibleClasses = classes;
+  const visibleElectives = electiveClasses;
 
   const totalCourses = visibleClasses.length + visibleElectives.length;
-  const totalProfessors = visibleClasses.reduce((sum, c) => sum + c.professors.length, 0) + visibleElectives.reduce((sum, c) => sum + c.professors.length, 0);
+  const totalProfessors = visibleClasses.reduce((sum, c) => sum + (c.professors?.length || 0), 0) + visibleElectives.reduce((sum, c) => sum + (c.professors?.length || 0), 0);
 
   // --- DARK MODE COLORS ---
   const getDifficultyColor = (difficulty: string) => {
