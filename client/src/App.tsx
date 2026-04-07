@@ -313,7 +313,16 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
 
   if (step === 1) return (
     <Layout onLogoClick={handleLogoClick} user={isLoggedIn ? googleUser : undefined} onSignOut={isLoggedIn ? handleSignOut : undefined}>
-      <UploadScreen file={file} department={department} onFileChange={handleFileChange} setDepartment={setDepartment} onNext={handleUploadAndParse} onBack={() => { if (enteredViaOverlay) { setEnteredViaOverlay(false); setStep(0); setShowLogin(true); } else { setStep(0); } }} isLoading={isLoading} />
+      <UploadScreen
+        file={file}
+        department={department}
+        onFileChange={handleFileChange}
+        setDepartment={setDepartment}
+        onNext={handleUploadAndParse}
+        onSkipTranscript={() => { setCompletedCourses([]); setStep(3); }}
+        onBack={() => { if (enteredViaOverlay) { setEnteredViaOverlay(false); setStep(0); setShowLogin(true); } else { setStep(0); } }}
+        isLoading={isLoading}
+      />
     </Layout>
   );
 

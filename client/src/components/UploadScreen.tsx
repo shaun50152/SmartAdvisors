@@ -10,11 +10,12 @@ interface UploadScreenProps {
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   setDepartment: (dept: string) => void;
   onNext: () => void;
+  onSkipTranscript?: () => void;
   onBack: () => void;
   isLoading?: boolean;
 }
 
-export default function UploadScreen({ file, department, onFileChange, setDepartment, onNext, onBack, isLoading = false }: UploadScreenProps) {
+export default function UploadScreen({ file, department, onFileChange, setDepartment, onNext, onSkipTranscript, onBack, isLoading = false }: UploadScreenProps) {
   // Derive initial college from department (for returning users)
   const [selectedCollege, setSelectedCollege] = useState(() => getCollegeKeyForDegree(department));
 
@@ -163,6 +164,15 @@ export default function UploadScreen({ file, department, onFileChange, setDepart
         <button onClick={onNext} disabled={!file || !department} className="w-full bg-[#0046FF] hover:bg-[#0036CC] text-white font-bold py-4 rounded-xl shadow-lg shadow-[#0046FF]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg group">
           Next Step <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
         </button>
+
+        {onSkipTranscript && department && (
+          <button
+            onClick={onSkipTranscript}
+            className="w-full mt-3 text-white/40 hover:text-white/70 font-semibold text-sm py-2 transition-colors"
+          >
+            I don't have a transcript yet — start fresh
+          </button>
+        )}
       </motion.div>
     </div>
   );

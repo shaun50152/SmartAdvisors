@@ -548,14 +548,22 @@ export default function DegreePlanSetup({ completedCourses, department, onPlanGe
               </div>
             )}
 
-            {eligibleCourses.length === 0 && (
-              <p className="text-center text-white/40 py-8">No eligible courses found.</p>
+            {eligibleCourses.length === 0 && remainingHours <= 0 && (
+              <div className="text-center py-10">
+                <div className="text-5xl mb-4">🎓</div>
+                <p className="text-emerald-400 font-bold text-lg mb-2">You've completed all your degree courses!</p>
+                <p className="text-white/40 text-sm">There are no remaining courses to plan. Congratulations!</p>
+              </div>
+            )}
+            {eligibleCourses.length === 0 && remainingHours > 0 && (
+              <p className="text-center text-white/40 py-8">No eligible courses found — check your transcript and degree selection.</p>
             )}
           </>
         )}
       </motion.div>
 
       {/* Generate button */}
+      {!(eligibleCourses.length === 0 && remainingHours <= 0) && (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -587,6 +595,7 @@ export default function DegreePlanSetup({ completedCourses, department, onPlanGe
               : `${selectedCourses.size} courses selected for ${startSemester} ${startYear}`}
         </p>
       </motion.div>
+      )}
     </div>
   );
 }

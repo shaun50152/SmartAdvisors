@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, TrendingUp, BookOpen, Loader2, Sparkles, ArrowLeft, Trophy, Download, ArrowRight } from 'lucide-react';
+import { Star, TrendingUp, BookOpen, Loader2, Sparkles, ArrowLeft, Trophy, Download, ArrowRight, GraduationCap } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 type PreferencesType = {
@@ -482,7 +482,15 @@ export default function RecommendationDashboard({ userData, onBack }: Recommenda
 
       {visibleClasses.length === 0 && visibleElectives.length === 0 ? (
           <div className="text-center py-20">
-              <p className="text-white/60 text-lg">No classes found matching your criteria.</p>
+            {userData.recommendations.length === 0 ? (
+              <>
+                <GraduationCap className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-white mb-2">You're all caught up!</h3>
+                <p className="text-white/60 text-lg">Based on your transcript, you've completed all eligible courses for your degree. Congratulations!</p>
+              </>
+            ) : (
+              <p className="text-white/60 text-lg">No classes found matching your criteria. Try adjusting your filters above.</p>
+            )}
           </div>
       ) : (
         <>
