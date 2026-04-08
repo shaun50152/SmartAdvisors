@@ -413,6 +413,7 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
         file={file}
         department={department}
         onFileChange={handleFileChange}
+        onClearFile={() => setFile(null)}
         setDepartment={setDepartment}
         onNext={handleUploadAndParse}
         onSkipTranscript={() => { setCompletedCourses([]); setStep(3); }}

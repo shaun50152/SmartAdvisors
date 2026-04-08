@@ -4,7 +4,7 @@ import type {
   Course,
   DegreePlan,
   ElectiveCourse,
-  PlanDegreePageProps,
+  PlanDegreePageProps, 
   Season,
 } from '../types/PlanDegreePage';
 
@@ -92,7 +92,7 @@ function CreditDonut({
         textAnchor="middle"
         dominantBaseline="central"
         fill="var(--text)"
-        style={{
+    style={{
           fontFamily: "'Bricolage Grotesque', sans-serif",
           fontSize: 11,
           fontWeight: 800,
@@ -293,14 +293,14 @@ export default function PlanDegreePage({
                 Build your{' '}
                 <span
                   className="bg-clip-text text-transparent"
-                  style={{
+              style={{ 
                     backgroundImage: 'linear-gradient(90deg, var(--purple), var(--orange))',
                     WebkitBackgroundClip: 'text',
-                  }}
-                >
+              }}
+            >
                   next semester.
                 </span>
-              </h1>
+            </h1>
             )}
           </div>
           <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3 lg:w-auto lg:min-w-[520px]">
@@ -309,8 +309,8 @@ export default function PlanDegreePage({
                 <div className="h-[88px] animate-pulse rounded-2xl bg-[var(--s1)] ring-1 ring-[var(--b0)]" />
                 <div className="h-[88px] animate-pulse rounded-2xl bg-[var(--s1)] ring-1 ring-[var(--b0)]" />
                 <div className="h-[88px] animate-pulse rounded-2xl bg-[var(--s1)] ring-1 ring-[var(--b0)]" />
-              </>
-            ) : (
+                </>
+              ) : (
               <>
                 <StatMini
                   label="Courses Done"
@@ -509,7 +509,7 @@ export default function PlanDegreePage({
               <p className="mt-0.5 text-xs text-[var(--t2)]">
                 Pick what interests you — we&apos;ll check your eligibility
               </p>
-            </div>
+                    </div>
             {showSkeleton ? (
               <div className="min-h-0 flex-1 space-y-2 overflow-hidden p-3">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -557,8 +557,8 @@ export default function PlanDegreePage({
                         </button>
                       );
                     })}
+                    </div>
                   </div>
-                </div>
 
                 {/* Always visible: eligibility updates as you toggle wishlist */}
                 <div
@@ -708,7 +708,7 @@ export default function PlanDegreePage({
                       {electiveCourses.length}
                     </span>
                   </button>
-                </div>
+                    </div>
                 <div
                   className="scrollbar-themed flex-1 overflow-y-auto border-t border-[var(--b0)] bg-[var(--s2)]/50 p-3"
                   style={{ minHeight: 280 }}
@@ -764,10 +764,10 @@ export default function PlanDegreePage({
                       })}
                     </ul>
                   )}
-                </div>
-              </>
-            )}
-          </div>
+                  </div>
+                </>
+              )}
+            </div>
         </section>
 
         {/* CTA */}
@@ -800,7 +800,7 @@ export default function PlanDegreePage({
             >
               Plan My Degree →
             </button>
-          </div>
+        </div>
         </section>
       </main>
       </div>
