@@ -7,54 +7,111 @@ import {
   GraduationCap,
 } from 'lucide-react';
 
-interface DegreePlanData {
-  plan: { semester: number; label: string; courses: { code: string; name: string; creditHours: number }[]; totalHours: number }[];
-  stats?: { totalHours: number; completedHours: number; totalCourses: number; completedCourses: number };
+interface PlannedCourse {
+  code: string;
+  name: string;
+  creditHours: number;
+  requirement: string;
+}
+
+interface PlanSemester {
+  label: string;
+  courses: PlannedCourse[];
+  totalHours: number;
+}
+
+interface DegreePlan {
+  plan: PlanSemester[];
+  totalRemainingHours: number;
+  stats?: {
+    totalCourses: number;
+    totalHours: number;
+    completedCourses: number;
+    completedHours: number;
+  };
 }
 
 interface DashboardPageProps {
+  plan: DegreePlan;
+  completedCourses: string[];
   userName: string;
   department: string;
   college: string;
-  degreePlan?: DegreePlanData;
   onViewPlan: () => void;
   onEditPlan: () => void;
   onNewTranscript: () => void;
 }
 
-function buildStats(plan?: DegreePlanData) {
-  if (!plan?.stats) return [];
-  const s = plan.stats;
-  const semLeft = plan.plan?.length || 0;
-  const coursesPlanned = plan.plan?.reduce((n, sem) => n + sem.courses.length, 0) || 0;
-  const hrsLeft = Math.max(0, s.totalHours - s.completedHours);
-  const pct = s.totalHours > 0 ? Math.round((s.completedHours / s.totalHours) * 100) : 0;
-  return [
-    { id: 'semesters', label: 'SEMESTERS LEFT', value: String(semLeft), icon: Calendar, color: '#5b7cfa', glowColor: 'rgba(91,124,250,0.15)' },
-    { id: 'courses', label: 'COURSES PLANNED', value: String(coursesPlanned), icon: BookOpen, color: '#ff6b35', glowColor: 'rgba(255,107,53,0.15)' },
-    { id: 'credits', label: 'CREDIT HRS LEFT', value: String(hrsLeft), icon: Clock, color: '#8892b8', glowColor: 'rgba(136,146,184,0.15)' },
-    { id: 'complete', label: 'DEGREE COMPLETE', value: `${pct}%`, icon: GraduationCap, color: '#22c55e', glowColor: 'rgba(34,197,94,0.15)' },
-  ];
+/** Step backwards through Fall/Spring (skipping Summer) */
+function prevSemLabel(label: string): string {
+  const [season, yr] = label.split(' ');
+  const year = parseInt(yr, 10);
+  if (season === 'Spring') return `Fall ${year - 1}`;
+  if (season === 'Summer') return `Spring ${year}`;
+  return `Spring ${year}`; // Fall → Spring same year
+}
+
+/** Generate `count` past semester labels ending just before `firstPlanned` */
+function buildCompletedLabels(firstPlanned: string, count: number): string[] {
+  if (!firstPlanned || count <= 0) return [];
+  const labels: string[] = [];
+  let cur = firstPlanned;
+  for (let i = 0; i < count; i++) {
+    cur = prevSemLabel(cur);
+    labels.unshift(cur);
+  }
+  return labels;
 }
 
 export default function DashboardPage({
+  plan,
+  completedCourses,
   userName,
   department,
   college,
-  degreePlan,
   onViewPlan,
   onEditPlan,
   onNewTranscript,
 }: DashboardPageProps) {
   const firstName = userName.split(' ')[0];
-  const STATS = buildStats(degreePlan);
-  const pct = degreePlan?.stats ? Math.round((degreePlan.stats.completedHours / degreePlan.stats.totalHours) * 100) : 0;
-  const nextSemester = degreePlan?.plan?.[0];
-  const planSemesters = degreePlan?.plan || [];
   const headerRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const profsRef = useRef<HTMLDivElement>(null);
+
+  // Derived stats from real degree plan data (with safe fallbacks)
+  const planSemesters = Array.isArray(plan?.plan) ? plan.plan : [];
+  const semestersLeft = planSemesters.length;
+
+  // Completed-semester estimation from transcript data
+  const totalPlanHours = planSemesters.reduce((a, s) => a + (s.totalHours ?? 0), 0);
+  const avgHoursPerSem = planSemesters.length > 0 ? totalPlanHours / planSemesters.length : 15;
+  const completedHoursForSems = plan?.stats?.completedHours ?? 0;
+  // Fallback: estimate via course count if completedHours not available
+  const avgCoursesPerSem = planSemesters.length > 0
+    ? planSemesters.reduce((a, s) => a + (s.courses?.length ?? 0), 0) / planSemesters.length
+    : 5;
+  const numCompletedSems = completedHoursForSems > 0 && avgHoursPerSem > 0
+    ? Math.max(1, Math.round(completedHoursForSems / avgHoursPerSem))
+    : completedCourses.length > 0 && avgCoursesPerSem > 0
+      ? Math.max(1, Math.round(completedCourses.length / avgCoursesPerSem))
+      : 0;
+  const completedSemLabels = buildCompletedLabels(planSemesters[0]?.label ?? '', numCompletedSems);
+  const coursesPlanned = planSemesters.reduce((acc, sem) => acc + (sem.courses?.length ?? 0), 0);
+  const creditsLeft = plan?.totalRemainingHours ?? 0;
+  const completionPct = plan?.stats && plan.stats.totalHours > 0
+    ? Math.min(100, Math.round((plan.stats.completedHours / plan.stats.totalHours) * 100))
+    : 0;
+  const upNextSemester = planSemesters[0];
+  const upNextLabel = upNextSemester?.label ?? 'UPCOMING';
+  const upNextCourses = upNextSemester?.courses?.slice(0, 5) ?? [];
+
+  const STATS = [
+    { id: 'semesters', label: 'SEMESTERS LEFT', value: String(semestersLeft), numValue: semestersLeft, suffix: '', icon: Calendar, color: '#5b7cfa', glowColor: 'rgba(91,124,250,0.15)' },
+    { id: 'courses', label: 'COURSES PLANNED', value: String(coursesPlanned), numValue: coursesPlanned, suffix: '', icon: BookOpen, color: '#ff6b35', glowColor: 'rgba(255,107,53,0.15)' },
+    { id: 'credits', label: 'CREDIT HRS LEFT', value: String(creditsLeft), numValue: creditsLeft, suffix: '', icon: Clock, color: '#8892b8', glowColor: 'rgba(136,146,184,0.15)' },
+    { id: 'complete', label: 'DEGREE COMPLETE', value: `${completionPct}%`, numValue: completionPct, suffix: '%', icon: GraduationCap, color: '#22c55e', glowColor: 'rgba(34,197,94,0.15)' },
+  ];
 
   useEffect(() => {
     /* ── Count-up helper ── */
@@ -132,7 +189,7 @@ export default function DashboardPage({
     // Progress bar fill + shimmer
     const barFill = rowRef.current?.querySelector('.ds-degree-bar-fill');
     if (barFill) {
-      gsap.to(barFill, { width: `${pct}%`, duration: 1.2, ease: 'power2.out', delay: 0.9 });
+      gsap.to(barFill, { width: `${completionPct}%`, duration: 1.2, ease: 'power2.out', delay: 0.9 });
       gsap.fromTo(barFill,
         { backgroundPosition: '0% center' },
         { backgroundPosition: '100% center', duration: 1.5, ease: 'power1.out', delay: 0.9 });
@@ -224,7 +281,7 @@ export default function DashboardPage({
         <div className="ds-row-card-left ds-degree-card">
           <div className="ds-degree-header">
             <span className="ds-degree-title">Degree Progress</span>
-            <span className="ds-degree-pct">{pct}%</span>
+            <span className="ds-degree-pct">{completionPct}%</span>
           </div>
 
           <div className="ds-degree-bar-track">
@@ -232,8 +289,22 @@ export default function DashboardPage({
           </div>
 
           <div className="ds-semester-list">
-            {planSemesters.slice(0, 6).map((sem, i) => (
-              <div key={sem.label} className={`ds-semester-row ds-sem-stagger-${i}`}>
+            {/* Completed semesters derived from transcript */}
+            {completedSemLabels.slice(-4).map((label, i) => (
+              <div key={`completed-${label}`} className={`ds-semester-row ds-sem-stagger-${i}`}>
+                <div className="ds-semester-left">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="10" r="9" stroke="#22c55e" strokeWidth="1.5" fill="rgba(34,197,94,0.1)" />
+                    <path d="M6.5 10.5l2.5 2.5 4.5-5" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="ds-semester-name">{label}</span>
+                </div>
+                <span className="ds-semester-status" data-color="#22c55e">Completed</span>
+              </div>
+            ))}
+            {/* Planned semesters (in progress + upcoming) */}
+            {planSemesters.slice(0, Math.max(1, 6 - Math.min(4, completedSemLabels.length))).map((sem, i) => (
+              <div key={sem.label} className={`ds-semester-row ds-sem-stagger-${completedSemLabels.slice(-4).length + i}`}>
                 <div className="ds-semester-left">
                   {i === 0 ? (
                     <svg className="ds-spinner-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -248,7 +319,7 @@ export default function DashboardPage({
                   <span className="ds-semester-name">{sem.label}</span>
                 </div>
                 <span className="ds-semester-status" data-color={i === 0 ? '#5b7cfa' : '#8892b8'}>
-                  {i === 0 ? 'Up Next' : `${sem.courses.length} courses`}
+                  {i === 0 ? 'In Progress' : 'Upcoming'}
                 </span>
               </div>
             ))}
@@ -257,26 +328,27 @@ export default function DashboardPage({
 
         {/* RIGHT: Up Next */}
         <div className="ds-row-card-right ds-upnext-card">
-          <span className="ds-upnext-label">{nextSemester ? `UP NEXT — ${nextSemester.label.toUpperCase()}` : 'UP NEXT'}</span>
+          <span className="ds-upnext-label">UP NEXT — {upNextLabel.toUpperCase()}</span>
 
           <div className="ds-upnext-list">
-            {(nextSemester?.courses || []).map((course) => (
-              <div key={course.code} className="ds-upnext-row">
-                <div className="ds-upnext-icon" data-bg="#5b7cfa">
-                  <BookOpen size={14} color="#5b7cfa" />
+            {upNextCourses.map((course, i) => {
+              const colors = ['#5b7cfa', '#8b5cf6', '#ff6b35', '#ef4444', '#3b82f6'];
+              const color = colors[i % colors.length];
+              return (
+                <div key={course.code} className="ds-upnext-row">
+                  <div className="ds-upnext-icon" data-bg={color}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                    </svg>
+                  </div>
+                  <div className="ds-upnext-info">
+                    <span className="ds-upnext-code">{course.code}</span>
+                    <span className="ds-upnext-name">{course.name}</span>
+                  </div>
+                  <span className="ds-upnext-cr">{course.creditHours} cr</span>
                 </div>
-                <div className="ds-upnext-info">
-                  <span className="ds-upnext-code">{course.code}</span>
-                  <span className="ds-upnext-name">{course.name}</span>
-                </div>
-                <span className="ds-upnext-cr">{course.creditHours} cr</span>
-              </div>
-            ))}
-            {!nextSemester && (
-              <p style={{ color: 'var(--ds-muted)', fontSize: '0.875rem', padding: '12px 0' }}>
-                No plan generated yet. View your plan to get started.
-              </p>
-            )}
+              );
+            })}
           </div>
 
           <div className="ds-upnext-actions">

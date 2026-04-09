@@ -563,10 +563,11 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
           onLogoClick={handleLogoClick}
         >
           <DashboardPage
+            plan={degreePlan?.degreePlan || degreePlan}
+            completedCourses={completedCourses}
             userName={googleUser.name}
             department={getDegreeName(department) || department}
             college={getCollegeName(department) || 'College of Engineering'}
-            degreePlan={degreePlan?.degreePlan || degreePlan}
             onViewPlan={() => setIsReturningUser(false)}
             onEditPlan={handleEditPlan}
             onNewTranscript={handleNewTranscript}
