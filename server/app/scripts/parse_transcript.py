@@ -95,6 +95,27 @@ _ONE_NUM = re.compile(r'^([A-Z]{2,4}(?:-[A-Z]{2})?)\s(\d{4}).*?\d+\.\d{3}')
 # Broadest: dept + 4-digit number at start of line (catches anything the above missed)
 _BROAD = re.compile(r'^([A-Z]{2,4}(?:-[A-Z]{2})?)\s(\d{4})\b')
 
+# All recognized grade tokens
+_PASSING = {'A', 'A+', 'A-', 'B', 'B+', 'B-', 'C', 'C+', 'C-', 'S', 'CR'}
+_FAILING = {'D', 'D+', 'D-', 'F', 'W', 'Q', 'I', 'Z', 'R', 'P', 'NP', 'AU'}
+_ALL_GRADES = _PASSING | _FAILING
+
+# Grade token appears right before credit-hour numbers (e.g. "B+  3.000  9.000")
+_GRADE_PATTERN = re.compile(r'\b(' + '|'.join(re.escape(g) for g in sorted(_ALL_GRADES, key=len, reverse=True)) + r')\s+\d+\.\d{3}')
+
+def _has_passing_grade(line: str) -> bool:
+    """Check if a transcript line has a passing grade (A/B/C/S/CR).
+
+    UTA transcript format: DEPT 1234  CourseName  Grade  Credits  QualityPts
+    The grade token sits right before the numeric credit hours field.
+    If no grade is found (in-progress or transfer), accept the course.
+    """
+    m = _GRADE_PATTERN.search(line)
+    if not m:
+        return False  # no grade found — registered/in-progress, don't count as completed
+    grade = m.group(1).upper()
+    return grade in _PASSING
+
 # Transfer / test credits
 _TRANSFER = re.compile(
     r'Transferred to Term \d{4} (?:Summer|Spring|Fall) as\s*\n\s*([A-Z]{3,4}\s\d{4})',
@@ -125,7 +146,11 @@ def extract_all_courses(pdf_path: str) -> List[str]:
                     for pat in (_GRADED, _ONE_NUM, _BROAD):
                         m = pat.match(line)
                         if m:
-                            found.add(f"{m.group(1)} {m.group(2)}")
+                            # Only count courses with explicit passing grades (A, B, C, S, CR).
+                            # Registered/in-progress courses (no grade) are skipped so students
+                            # can browse alternatives for next semester.
+                            if _has_passing_grade(line):
+                                found.add(f"{m.group(1)} {m.group(2)}")
                             break
 
             full_text = '\n'.join(full_text_parts)

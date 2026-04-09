@@ -4,7 +4,8 @@ import type {
   Course,
   DegreePlan,
   ElectiveCourse,
-  PlanDegreePageProps, 
+  ElectiveGroup,
+  PlanDegreePageProps,
   Season,
 } from '../types/PlanDegreePage';
 
@@ -108,6 +109,7 @@ export default function PlanDegreePage({
   student,
   requiredCourses: requiredRaw,
   electiveCourses: electiveRaw,
+  electiveGroups = [],
   loading = false,
   onComplete,
   onBack,
@@ -509,6 +511,37 @@ export default function PlanDegreePage({
               <p className="mt-0.5 text-xs text-[var(--t2)]">
                 Pick what interests you — we&apos;ll check your eligibility
               </p>
+              {electiveGroups.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {electiveGroups.map((g) => {
+                    const selectedHrs = Array.from(wishlist).reduce((sum, id) => {
+                      const c = electiveCourses.find((ec) => ec.id === id && (ec as any).group === g.group);
+                      return sum + (c ? c.creditHours : 0);
+                    }, 0);
+                    const totalFilled = g.hoursCompleted + selectedHrs;
+                    const pctFilled = g.hoursRequired > 0 ? Math.min(100, Math.round((totalFilled / g.hoursRequired) * 100)) : 100;
+                    const isSatisfied = totalFilled >= g.hoursRequired;
+                    return (
+                      <div key={g.group}>
+                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
+                          <span style={{ color: isSatisfied ? '#22c55e' : 'var(--sub)' }}>{g.group}</span>
+                          <span style={{ color: isSatisfied ? '#22c55e' : 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+                            {totalFilled}/{g.hoursRequired} hrs
+                          </span>
+                        </div>
+                        <div className="mt-0.5 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--b0)' }}>
+                          {g.hoursCompleted > 0 && (
+                            <div className="h-full float-left rounded-full" style={{ width: `${Math.round((g.hoursCompleted / g.hoursRequired) * 100)}%`, background: '#22c55e' }} />
+                          )}
+                          {selectedHrs > 0 && (
+                            <div className="h-full float-left rounded-full" style={{ width: `${Math.round((selectedHrs / g.hoursRequired) * 100)}%`, background: '#FF8040' }} />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
                     </div>
             {showSkeleton ? (
               <div className="min-h-0 flex-1 space-y-2 overflow-hidden p-3">
@@ -552,7 +585,10 @@ export default function PlanDegreePage({
                             >
                               {c.code}
                             </span>
-                            <span className="block truncate text-xs text-[var(--t2)]">{c.name}</span>
+                            <span className="block truncate text-xs text-[var(--t2)]">
+                              {c.name}
+                              {(c as any).group && <span className="ml-1 text-[10px] opacity-50">({(c as any).group})</span>}
+                            </span>
                           </span>
                         </button>
                       );

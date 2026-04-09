@@ -20,7 +20,7 @@ import DashboardPage from './components/DashboardPage';
 import { getDegreeName, getCollegeName } from './config/colleges';
 import WelcomeBack from './components/WelcomeBack';
 import PlanDegreePage from './components/PlanDegreePage';
-import type { DegreePlan, Course, ElectiveCourse, Student } from './types/PlanDegreePage';
+import type { DegreePlan, Course, ElectiveCourse, ElectiveGroup, Student } from './types/PlanDegreePage';
 
 // Use localhost for local development
 const API_URL = 'http://127.0.0.1:8000';
@@ -75,10 +75,12 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
     student: Student | undefined;
     requiredCourses: Course[];
     electiveCourses: ElectiveCourse[];
+    electiveGroups: ElectiveGroup[];
   }>({
     student: undefined,
     requiredCourses: [],
-    electiveCourses: []
+    electiveCourses: [],
+    electiveGroups: [],
   });
   const [enteredViaOverlay, setEnteredViaOverlay] = useState(false);
 
@@ -90,7 +92,7 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
   // so stale data from a different department/transcript doesn't linger.
   useEffect(() => {
     if (step !== 3) {
-      setPlanDegreeData({ student: undefined, requiredCourses: [], electiveCourses: [] });
+      setPlanDegreeData({ student: undefined, requiredCourses: [], electiveCourses: [], electiveGroups: [] });
     }
   }, [step]);
 
@@ -268,6 +270,14 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
             creditHours: c.creditHours
           }));
 
+        // Build group lookup from electiveGroups so flat list knows its group
+        const groupLookup: Record<string, string> = {};
+        for (const g of (data.electiveGroups || [])) {
+          for (const c of (g.courses || [])) {
+            groupLookup[c.code] = g.group;
+          }
+        }
+
         const electiveSource = data.allElectives || data.eligibleCourses?.filter((c: any) => c.requirement === 'elective') || [];
         const electiveCourses: ElectiveCourse[] = electiveSource.map((c: any) => ({
           id: c.code,
@@ -275,6 +285,23 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
           name: c.name,
           creditHours: c.creditHours,
           missingPrereqs: c.missingPrereqs || [],
+          group: groupLookup[c.code] || undefined,
+        }));
+
+        // Preserve elective groups with hour requirements from API
+        const electiveGroups: ElectiveGroup[] = (data.electiveGroups || []).map((g: any) => ({
+          group: g.group,
+          hoursRequired: g.hoursRequired,
+          hoursCompleted: g.hoursCompleted,
+          courses: (g.courses || []).map((c: any) => ({
+            id: c.code,
+            code: c.code,
+            name: c.name,
+            creditHours: c.creditHours,
+            missingPrereqs: c.missingPrereqs || [],
+            group: g.group,
+            ...(c.taken ? { taken: true } : {}),
+          })),
         }));
 
         const remHrs = Math.max(0, (data.stats.totalHours || 0) - (data.stats.completedHours || 0));
@@ -292,7 +319,8 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
         setPlanDegreeData({
           student,
           requiredCourses,
-          electiveCourses
+          electiveCourses,
+          electiveGroups,
         });
       }
     } catch (error) {
@@ -462,6 +490,7 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
                 student={planDegreeData.student}
                 requiredCourses={planDegreeData.requiredCourses}
                 electiveCourses={planDegreeData.electiveCourses}
+                electiveGroups={planDegreeData.electiveGroups}
                 loading={isLoading}
                 onComplete={handlePlanDegreeComplete}
                 onBack={() => setUserPrefs(null)}
@@ -537,6 +566,7 @@ function App({ googleOAuthEnabled = true }: { googleOAuthEnabled?: boolean }) {
             userName={googleUser.name}
             department={getDegreeName(department) || department}
             college={getCollegeName(department) || 'College of Engineering'}
+            degreePlan={degreePlan?.degreePlan || degreePlan}
             onViewPlan={() => setIsReturningUser(false)}
             onEditPlan={handleEditPlan}
             onNewTranscript={handleNewTranscript}

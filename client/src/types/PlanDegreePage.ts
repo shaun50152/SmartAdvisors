@@ -11,6 +11,14 @@ export interface Course {
 
 export interface ElectiveCourse extends Course {
   missingPrereqs: string[];
+  group?: string;
+}
+
+export interface ElectiveGroup {
+  group: string;
+  hoursRequired: number;
+  hoursCompleted: number;
+  courses: ElectiveCourse[];
 }
 
 /** Progress + identity from backend / parent (no hardcoded demo data). */
@@ -40,6 +48,7 @@ export interface PlanDegreePageProps {
   student?: Student;
   requiredCourses?: Course[];
   electiveCourses?: ElectiveCourse[];
+  electiveGroups?: ElectiveGroup[];
   /** When true, show layout skeleton (parent is fetching). */
   loading?: boolean;
   onComplete: (plan: DegreePlan) => void;
