@@ -709,6 +709,7 @@ def degree_plan():
                 'code': code,
                 'name': c.get('course_name', ''),
                 'creditHours': hrs,
+                'electiveGroup': group,
                 'missingPrereqs': _missing_prereqs(c),
                 **(({'taken': True}) if is_taken else {}),
             })

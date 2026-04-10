@@ -69,6 +69,8 @@ export const COLLEGES: Record<string, CollegeInfo> = {
 
 /** Get display name for a degree code (e.g. 'CSE' → 'Computer Science') */
 export function getDegreeName(code: string): string {
+  if (code === 'CSE') return 'Computer Science';
+  if (code === 'MAE') return 'Mechanical Engineering';
   for (const college of Object.values(COLLEGES)) {
     const degree = college.degrees.find((d) => d.code === code);
     if (degree) return degree.name;

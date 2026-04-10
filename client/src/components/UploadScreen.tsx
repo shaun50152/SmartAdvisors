@@ -3,14 +3,20 @@ import { ArrowLeft, Shield, ExternalLink, ChevronDown, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ProcessingOverlay from './ProcessingOverlay';
 
-// Spec: College of Engineering only (value "eng"), 6 majors mapped to backend codes
-const ENGINEERING_MAJORS: { name: string; code: string }[] = [
-  { name: 'Aerospace Engineering', code: 'MAE' },
-  { name: 'Civil Engineering', code: 'CE' },
-  { name: 'Computer Science', code: 'CSE' },
-  { name: 'Electrical Engineering', code: 'EE' },
-  { name: 'Industrial Engineering', code: 'IE' },
-  { name: 'Mechanical Engineering', code: 'MAE' },
+// College of Engineering — labels match smart_advisors.db degree_id codes
+const ENGINEERING_MAJORS: { label: string; code: string }[] = [
+  { label: 'Civil Engineering (CE)', code: 'CE' },
+  { label: 'Electrical Engineering (EE)', code: 'EE' },
+  { label: 'Aerospace Engineering (AE)', code: 'AE' },
+  { label: 'Industrial Engineering (IE)', code: 'IE' },
+  { label: 'Architectural Engineering (AREN)', code: 'AREN' },
+  { label: 'Construction Management (CM)', code: 'CM' },
+  { label: 'Mechanical Engineering (ME)', code: 'ME' },
+  { label: 'Biomedical Engineering — Imaging Track (BE(I))', code: 'BE(I)' },
+  { label: 'Biomedical Engineering — Tissue Track (BE(T))', code: 'BE(T)' },
+  { label: 'Computer Science (CS)', code: 'CS' },
+  { label: 'Computer Engineering (CpE)', code: 'CpE' },
+  { label: 'Software Engineering (SE)', code: 'SE' },
 ];
 
 interface UploadScreenProps {
@@ -343,7 +349,9 @@ export default function UploadScreen({
                   >
                     <option value="" className="bg-[var(--s1)] text-[var(--sub)]">Choose...</option>
                     {ENGINEERING_MAJORS.map((m) => (
-                      <option key={m.code + m.name} value={m.code} className="bg-[var(--s1)] text-[var(--text)]">{m.name}</option>
+                      <option key={m.code} value={m.code} className="bg-[var(--s1)] text-[var(--text)]">
+                        {m.label}
+                      </option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--sub)] pointer-events-none" />

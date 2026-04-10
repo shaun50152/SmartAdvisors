@@ -12,6 +12,25 @@ import type {
 const HR_OPTIONS = [12, 13, 14, 15, 16, 17, 18] as const;
 const SEASONS: Season[] = ['Fall', 'Spring', 'Summer'];
 
+function electiveGroupKey(c: ElectiveCourse): string {
+  const g = c.electiveGroup;
+  if (g == null || String(g).trim() === '') return '__ungrouped__';
+  return String(g).trim();
+}
+
+/** Human-readable label for degree_courses.elective_group */
+function formatElectiveGroupLabel(key: string): string {
+  if (key === '__ungrouped__') return 'Degree electives';
+  const s = key.trim();
+  if (!s) return 'Degree electives';
+  if (s.toLowerCase() === 'other') return 'General electives';
+  return s
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 function isValidCourse(c: unknown): c is Course {
   if (!c || typeof c !== 'object') return false;
   const o = c as Record<string, unknown>;
@@ -31,7 +50,15 @@ function isValidCourse(c: unknown): c is Course {
 function isValidElective(c: unknown): c is ElectiveCourse {
   if (!isValidCourse(c)) return false;
   const o = c as ElectiveCourse;
-  return Array.isArray(o.missingPrereqs) && o.missingPrereqs.every((x) => typeof x === 'string');
+  if (!Array.isArray(o.missingPrereqs) || !o.missingPrereqs.every((x) => typeof x === 'string')) return false;
+  if (
+    'electiveGroup' in o &&
+    o.electiveGroup != null &&
+    typeof o.electiveGroup !== 'string'
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function initialYearDefault(): string {
@@ -172,12 +199,37 @@ export default function PlanDegreePage({
     return out;
   }, [wishlist, electiveCourses]);
 
-  const sortedElectives = useMemo(() => {
-    const topIds = new Set(eligibleWished.map((c) => c.id));
-    const top = eligibleWished.slice();
-    const rest = electiveCourses.filter((c) => !topIds.has(c.id));
-    return [...top, ...rest];
-  }, [eligibleWished, electiveCourses]);
+  /** Electives grouped by degree_courses.elective_group; wishlisted + eligible first within each group. */
+  const electivesByGroup = useMemo(() => {
+    const m = new Map<string, ElectiveCourse[]>();
+    for (const c of electiveCourses) {
+      const k = electiveGroupKey(c);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(c);
+    }
+    const sortLast = (x: string) =>
+      x === '__ungrouped__' || x.toLowerCase() === 'other';
+    const entries = [...m.entries()].sort(([a], [b]) => {
+      if (sortLast(a) && !sortLast(b)) return 1;
+      if (!sortLast(a) && sortLast(b)) return -1;
+      return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
+    });
+    const sortCoursesInGroup = (list: ElectiveCourse[]) => {
+      const wishEl = list.filter((c) => wishlist.has(c.id) && c.missingPrereqs.length === 0);
+      const wishBad = list.filter((c) => wishlist.has(c.id) && c.missingPrereqs.length > 0);
+      const rest = list.filter((c) => !wishlist.has(c.id));
+      const byCode = (x: ElectiveCourse, y: ElectiveCourse) => x.code.localeCompare(y.code);
+      wishEl.sort(byCode);
+      wishBad.sort(byCode);
+      rest.sort(byCode);
+      return [...wishEl, ...wishBad, ...rest];
+    };
+    return entries.map(([key, courses]) => ({
+      key,
+      label: formatElectiveGroupLabel(key),
+      courses: sortCoursesInGroup(courses),
+    }));
+  }, [electiveCourses, wishlist]);
 
   const showSkeleton = loading || (!student && requiredCourses.length === 0 && electiveCourses.length === 0);
 
@@ -274,7 +326,7 @@ export default function PlanDegreePage({
           </button>
         </div>
 
-        <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 pb-28 pt-2 md:px-6">
+        <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 pb-8 pt-2 md:px-6">
         {/* Top header */}
         <section className="pd-stagger-1 mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -491,11 +543,11 @@ export default function PlanDegreePage({
           )}
         </section>
 
-        {/* Lower grid */}
+        {/* Lower grid — on small screens, course picker (with submit) appears first */}
         <section className="pd-stagger-4 grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
           {/* Wishlist + pinned eligibility footer */}
           <div
-            className="flex max-h-[720px] min-h-[380px] flex-col overflow-hidden rounded-2xl border border-[var(--purple-border)] bg-[var(--s1)]"
+            className="order-2 flex max-h-[min(520px,58vh)] min-h-[320px] flex-col overflow-hidden rounded-2xl border border-[var(--purple-border)] bg-[var(--s1)] lg:order-1 lg:max-h-[720px] lg:min-h-[380px]"
             style={{ boxShadow: 'inset 0 1px 0 rgba(155,126,248,0.06)' }}
           >
             <div
@@ -554,47 +606,71 @@ export default function PlanDegreePage({
             ) : (
               <>
                 <div className="scrollbar-themed min-h-0 flex-1 overflow-y-auto p-3">
-                  <div className="space-y-2">
-                    {electiveCourses.map((c) => {
-                      const on = wishlist.has(c.id);
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => toggleWishlist(c.id)}
-                          className="flex w-full items-start gap-2 rounded-xl border px-3 py-2.5 text-left transition-[background,border-color,box-shadow] duration-150"
+                  <div className="space-y-5">
+                    {electivesByGroup.map(({ key, label, courses }) => (
+                      <div key={key}>
+                        <div
+                          className="mb-2.5 flex items-center gap-2 rounded-lg px-2 py-1.5"
                           style={{
-                            background: on ? 'var(--purple-dim)' : 'var(--s2)',
-                            borderColor: on ? 'var(--purple-border)' : 'var(--b0)',
-                            boxShadow: on ? '0 0 0 1px rgba(155, 126, 248, 0.12)' : 'none',
+                            background: 'rgba(155, 126, 248, 0.08)',
+                            border: '1px solid rgba(155, 126, 248, 0.2)',
                           }}
                         >
                           <span
-                            className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border"
-                            style={{
-                              borderColor: 'var(--purple-border)',
-                              background: on ? 'var(--purple)' : 'transparent',
-                            }}
+                            className="h-1.5 w-1.5 shrink-0 rounded-full"
+                            style={{ background: 'var(--purple)' }}
+                          />
+                          <h3
+                            className="min-w-0 flex-1 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--text)]"
+                            style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
                           >
-                            {on && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                            {label}
+                          </h3>
+                          <span className="shrink-0 rounded-md bg-[var(--s2)] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-[var(--t2)]">
+                            {courses.length}
                           </span>
-                          <span className="min-w-0 flex-1">
-                            <span
-                              className="block truncate font-bold text-[var(--text)]"
-                              style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
-                            >
-                              {c.code}
-                            </span>
-                            <span className="block truncate text-xs text-[var(--t2)]">
-                              {c.name}
-                              {(c as any).group && <span className="ml-1 text-[10px] opacity-50">({(c as any).group})</span>}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                    </div>
+                        </div>
+                        <div className="space-y-2">
+                          {courses.map((c) => {
+                            const on = wishlist.has(c.id);
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => toggleWishlist(c.id)}
+                                className="flex w-full items-start gap-2 rounded-xl border px-3 py-2.5 text-left transition-[background,border-color,box-shadow] duration-150"
+                                style={{
+                                  background: on ? 'var(--purple-dim)' : 'var(--s2)',
+                                  borderColor: on ? 'var(--purple-border)' : 'var(--b0)',
+                                  boxShadow: on ? '0 0 0 1px rgba(155, 126, 248, 0.12)' : 'none',
+                                }}
+                              >
+                                <span
+                                  className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+                                  style={{
+                                    borderColor: 'var(--purple-border)',
+                                    background: on ? 'var(--purple)' : 'transparent',
+                                  }}
+                                >
+                                  {on && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span
+                                    className="block truncate font-bold text-[var(--text)]"
+                                    style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+                                  >
+                                    {c.code}
+                                  </span>
+                                  <span className="block truncate text-xs text-[var(--t2)]">{c.name}</span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                </div>
 
                 {/* Always visible: eligibility updates as you toggle wishlist */}
                 <div
@@ -682,161 +758,192 @@ export default function PlanDegreePage({
             )}
           </div>
 
-          {/* Course picker */}
-          <div className="flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-[var(--b1)] bg-[var(--s1)]">
-            <div className="border-b border-[var(--b1)] px-4 py-3">
-              <h2
-                className="text-lg font-bold text-[var(--text)]"
-                style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 800 }}
-              >
-                Pick courses for {season} {year}
-              </h2>
-              <p className="text-xs text-[var(--t2)]">Eligible courses from your degree plan</p>
-            </div>
-            {showSkeleton ? (
-              <div className="flex-1 space-y-2 p-3">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="h-14 animate-pulse rounded-xl bg-[var(--s2)]" />
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="flex gap-0 px-3 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('req')}
-                    className="flex items-center gap-2 rounded-t-xl px-4 py-2 text-sm font-bold transition-colors"
-                    style={{
-                      background: activeTab === 'req' ? 'var(--s2)' : 'transparent',
-                      color: activeTab === 'req' ? 'var(--text)' : 'var(--t2)',
-                      boxShadow:
-                        activeTab === 'req' ? 'inset 0 1px 0 rgba(255,255,255,0.06)' : 'none',
-                    }}
-                  >
-                    Required
-                    <span
-                      className="rounded-md px-1.5 py-0.5 text-[10px]"
-                      style={{
-                        background: 'var(--blue-dim)',
-                        color: 'var(--blue)',
-                      }}
-                    >
-                      {requiredCourses.length}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('elec')}
-                    className="flex items-center gap-2 rounded-t-xl px-4 py-2 text-sm font-bold transition-colors"
-                    style={{
-                      background: activeTab === 'elec' ? 'var(--s2)' : 'transparent',
-                      color: activeTab === 'elec' ? 'var(--text)' : 'var(--t2)',
-                    }}
-                  >
-                    Electives
-                    <span
-                      className="rounded-md px-1.5 py-0.5 text-[10px]"
-                      style={{
-                        background: 'var(--orange-dim)',
-                        color: 'var(--orange)',
-                      }}
-                    >
-                      {electiveCourses.length}
-                    </span>
-                  </button>
-                    </div>
-                <div
-                  className="scrollbar-themed flex-1 overflow-y-auto border-t border-[var(--b0)] bg-[var(--s2)]/50 p-3"
-                  style={{ minHeight: 280 }}
+          {/* Course picker + submit (sticky foot of this card — not viewport-fixed) */}
+          <div className="order-1 flex w-full min-h-0 flex-col lg:order-2">
+            <div className="flex max-h-[min(78vh,820px)] min-h-[380px] w-full flex-col overflow-hidden rounded-2xl border border-[var(--b1)] bg-[var(--s1)] lg:max-h-[min(86vh,900px)]">
+              <div className="flex-shrink-0 border-b border-[var(--b1)] px-4 py-3">
+                <h2
+                  className="text-lg font-bold text-[var(--text)]"
+                  style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 800 }}
                 >
-                  {activeTab === 'req' ? (
-                    requiredCourses.length === 0 ? (
+                  Pick courses for {season} {year}
+                </h2>
+                <p className="text-xs text-[var(--t2)]">
+                  Eligible courses from your degree plan
+                  {activeTab === 'elec' && electiveCourses.length > 0 ? (
+                    <span className="text-[var(--t3)]"> · grouped by elective category</span>
+                  ) : null}
+                </p>
+              </div>
+              {showSkeleton ? (
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="h-14 animate-pulse rounded-xl bg-[var(--s2)]" />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-shrink-0 gap-0 px-3 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('req')}
+                      className="flex items-center gap-2 rounded-t-xl px-4 py-2 text-sm font-bold transition-colors"
+                      style={{
+                        background: activeTab === 'req' ? 'var(--s2)' : 'transparent',
+                        color: activeTab === 'req' ? 'var(--text)' : 'var(--t2)',
+                        boxShadow:
+                          activeTab === 'req' ? 'inset 0 1px 0 rgba(255,255,255,0.06)' : 'none',
+                      }}
+                    >
+                      Required
+                      <span
+                        className="rounded-md px-1.5 py-0.5 text-[10px]"
+                        style={{
+                          background: 'var(--blue-dim)',
+                          color: 'var(--blue)',
+                        }}
+                      >
+                        {requiredCourses.length}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('elec')}
+                      className="flex items-center gap-2 rounded-t-xl px-4 py-2 text-sm font-bold transition-colors"
+                      style={{
+                        background: activeTab === 'elec' ? 'var(--s2)' : 'transparent',
+                        color: activeTab === 'elec' ? 'var(--text)' : 'var(--t2)',
+                      }}
+                    >
+                      Electives
+                      <span
+                        className="rounded-md px-1.5 py-0.5 text-[10px]"
+                        style={{
+                          background: 'var(--orange-dim)',
+                          color: 'var(--orange)',
+                        }}
+                      >
+                        {electiveCourses.length}
+                      </span>
+                    </button>
+                  </div>
+                  <div
+                    className="scrollbar-themed min-h-0 flex-1 overflow-y-auto border-t border-[var(--b0)] bg-[var(--s2)]/50 p-3"
+                    style={{ minHeight: 200 }}
+                  >
+                    {activeTab === 'req' ? (
+                      requiredCourses.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-[var(--t2)]">
+                          No required courses available for this semester.
+                        </p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {requiredCourses.map((c) => (
+                            <CourseRow
+                              key={`${c.id}-${shakeTarget === c.id ? shakeTick : 0}`}
+                              course={c}
+                              variant="req"
+                              selected={selected.has(c.id)}
+                              dim={
+                                !selected.has(c.id) && totalHrs + c.creditHours > maxHrs
+                              }
+                              shake={shakeTarget === c.id ? shakeTick : 0}
+                              onToggle={() => tryToggleCourse(c)}
+                            />
+                          ))}
+                        </ul>
+                      )
+                    ) : electiveCourses.length === 0 ? (
                       <p className="py-8 text-center text-sm text-[var(--t2)]">
-                        No required courses available for this semester.
+                        No elective courses available for this semester.
                       </p>
                     ) : (
-                      <ul className="space-y-2">
-                        {requiredCourses.map((c) => (
-                          <CourseRow
-                            key={`${c.id}-${shakeTarget === c.id ? shakeTick : 0}`}
-                            course={c}
-                            variant="req"
-                            selected={selected.has(c.id)}
-                            dim={
-                              !selected.has(c.id) && totalHrs + c.creditHours > maxHrs
-                            }
-                            shake={shakeTarget === c.id ? shakeTick : 0}
-                            onToggle={() => tryToggleCourse(c)}
-                          />
+                      <div className="space-y-6">
+                        {electivesByGroup.map(({ key, label, courses }) => (
+                          <div key={key}>
+                            <div
+                              className="mb-2.5 flex items-center gap-2 rounded-lg px-2 py-1.5"
+                              style={{
+                                background: 'rgba(240, 120, 64, 0.1)',
+                                border: '1px solid rgba(240, 120, 64, 0.28)',
+                              }}
+                            >
+                              <span
+                                className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                style={{ background: 'var(--orange)' }}
+                              />
+                              <h3
+                                className="min-w-0 flex-1 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--text)]"
+                                style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
+                              >
+                                {label}
+                              </h3>
+                              <span className="shrink-0 rounded-md bg-[var(--s1)] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-[var(--t2)]">
+                                {courses.length}
+                              </span>
+                            </div>
+                            <ul className="space-y-2">
+                              {courses.map((c) => {
+                                const wish = wishlist.has(c.id);
+                                return (
+                                  <CourseRow
+                                    key={`${c.id}-${shakeTarget === c.id ? shakeTick : 0}`}
+                                    course={c}
+                                    variant="elec"
+                                    selected={selected.has(c.id)}
+                                    dim={!selected.has(c.id) && totalHrs + c.creditHours > maxHrs}
+                                    shake={shakeTarget === c.id ? shakeTick : 0}
+                                    onToggle={() => tryToggleCourse(c)}
+                                    badge={
+                                      wish && c.missingPrereqs.length === 0 ? (
+                                        <span className="rounded-md bg-[var(--purple-dim)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--purple)]">
+                                          ★ Wishlist
+                                        </span>
+                                      ) : null
+                                    }
+                                  />
+                                );
+                              })}
+                            </ul>
+                          </div>
                         ))}
-                      </ul>
-                    )
-                  ) : sortedElectives.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-[var(--t2)]">
-                      No elective courses available for this semester.
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className="pd-stagger-5 flex flex-shrink-0 flex-col gap-3 border-t border-[var(--b1)] bg-[var(--bg)]/95 px-4 py-3 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between"
+                    style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.12)' }}
+                  >
+                    <p className="text-sm text-[var(--t2)]">
+                      {selected.size === 0 ? (
+                        'Pick at least one course to continue'
+                      ) : (
+                        <>
+                          <span className="font-semibold text-[var(--text)]">{selected.size}</span> course
+                          {selected.size !== 1 ? 's' : ''} ·{' '}
+                          <span className="font-semibold text-[var(--text)]">{totalHrs}</span> hrs selected
+                        </>
+                      )}
                     </p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {sortedElectives.map((c) => {
-                        const wish = wishlist.has(c.id);
-                        return (
-                          <CourseRow
-                            key={`${c.id}-${shakeTarget === c.id ? shakeTick : 0}`}
-                            course={c}
-                            variant="elec"
-                            selected={selected.has(c.id)}
-                            dim={!selected.has(c.id) && totalHrs + c.creditHours > maxHrs}
-                            shake={shakeTarget === c.id ? shakeTick : 0}
-                            onToggle={() => tryToggleCourse(c)}
-                            badge={
-                              wish && c.missingPrereqs.length === 0 ? (
-                                <span className="rounded-md bg-[var(--purple-dim)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--purple)]">
-                                  ★ Wishlist
-                                </span>
-                              ) : null
-                            }
-                          />
-                        );
-                      })}
-                    </ul>
-                  )}
+                    <button
+                      type="button"
+                      disabled={selected.size === 0}
+                      onClick={submitPlan}
+                      className="pd-cta-btn w-full shrink-0 rounded-xl px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 sm:w-auto sm:px-8 sm:py-3 sm:text-base"
+                      style={{
+                        fontFamily: "'Bricolage Grotesque', sans-serif",
+                        fontWeight: 700,
+                        background: 'linear-gradient(90deg, var(--blue), var(--purple), var(--orange))',
+                        backgroundSize: '200% 100%',
+                      }}
+                    >
+                      Plan My Degree →
+                    </button>
                   </div>
                 </>
               )}
             </div>
-        </section>
-
-        {/* CTA */}
-        <section
-          className="pd-stagger-5 fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--b1)] bg-[var(--bg)]/92 px-4 py-4 backdrop-blur-md md:static md:mt-10 md:rounded-2xl md:border md:bg-[var(--s1)] md:px-6"
-        >
-          <div className="mx-auto flex max-w-7xl flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-[var(--t2)]">
-              {selected.size === 0 ? (
-                'Pick at least one course to continue'
-              ) : (
-                <>
-                  <span className="font-semibold text-[var(--text)]">{selected.size}</span> course
-                  {selected.size !== 1 ? 's' : ''} ·{' '}
-                  <span className="font-semibold text-[var(--text)]">{totalHrs}</span> hrs selected
-                </>
-              )}
-            </p>
-            <button
-              type="button"
-              disabled={selected.size === 0}
-              onClick={submitPlan}
-              className="pd-cta-btn rounded-xl px-8 py-3 text-base font-bold text-white shadow-lg transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-              style={{
-                fontFamily: "'Bricolage Grotesque', sans-serif",
-                fontWeight: 700,
-                background: 'linear-gradient(90deg, var(--blue), var(--purple), var(--orange))',
-                backgroundSize: '200% 100%',
-              }}
-            >
-              Plan My Degree →
-            </button>
-        </div>
+          </div>
         </section>
       </main>
       </div>

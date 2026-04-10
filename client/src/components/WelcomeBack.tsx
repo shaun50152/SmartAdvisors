@@ -49,7 +49,7 @@ export default function WelcomeBack({
         className="bg-white/5 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden"
       >
         {/* Header with gradient */}
-        <div className="relative px-8 pt-10 pb-8 bg-gradient-to-br from-[#0046FF]/20 via-transparent to-[#FF8040]/10">
+        <div className="relative px-8 pt-10 pb-8 bg-gradient-to-br from-[var(--accent-blue)]/20 via-transparent to-[var(--accent-coral)]/10">
           <div className="flex items-center gap-4 mb-6">
             {userPicture ? (
               <img
@@ -60,7 +60,7 @@ export default function WelcomeBack({
                 onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).style.display = 'none'; }}
               />
             ) : (
-              <div className="w-16 h-16 rounded-2xl bg-[#0046FF]/30 border border-white/10 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-[var(--accent-blue)]/30 border border-white/10 flex items-center justify-center">
                 <span className="text-2xl font-bold text-white">{firstName[0]}</span>
               </div>
             )}
@@ -88,9 +88,9 @@ export default function WelcomeBack({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-[#0046FF]/10 border border-[#0046FF]/20 rounded-xl p-4 text-center"
+              className="bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20 rounded-xl p-4 text-center"
             >
-              <Calendar className="w-5 h-5 text-[#0046FF] mx-auto mb-2" />
+              <Calendar className="w-5 h-5 text-[var(--accent-blue)] mx-auto mb-2" />
               <p className="text-2xl font-bold text-white">{semesters.length}</p>
               <p className="text-white/40 text-xs">Semesters</p>
             </motion.div>
@@ -98,9 +98,9 @@ export default function WelcomeBack({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="bg-[#FF8040]/10 border border-[#FF8040]/20 rounded-xl p-4 text-center"
+              className="bg-[var(--accent-coral)]/10 border border-[var(--accent-coral)]/20 rounded-xl p-4 text-center"
             >
-              <BookOpen className="w-5 h-5 text-[#FF8040] mx-auto mb-2" />
+              <BookOpen className="w-5 h-5 text-[var(--accent-coral)] mx-auto mb-2" />
               <p className="text-2xl font-bold text-white">{totalCoursesPlanned}</p>
               <p className="text-white/40 text-xs">Courses</p>
             </motion.div>
@@ -126,14 +126,14 @@ export default function WelcomeBack({
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-white/50 text-xs font-semibold">Degree Progress</span>
-                <span className="text-[#FF8040] text-xs font-bold">{progressPercent}%</span>
+                <span className="text-[var(--accent-coral)] text-xs font-bold">{progressPercent}%</span>
               </div>
               <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/10">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${progressPercent}%` }}
                   transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }}
-                  className="h-full rounded-full bg-gradient-to-r from-[#0046FF] to-[#FF8040]"
+                  className="h-full rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-coral)]"
                 />
               </div>
               <p className="text-white/30 text-xs mt-1.5">
@@ -157,7 +157,7 @@ export default function WelcomeBack({
                 {semesters[0].courses.slice(0, 5).map((c: any) => (
                   <span
                     key={c.code}
-                    className="px-2.5 py-1 rounded-lg bg-[#0046FF]/10 border border-[#0046FF]/20 text-white text-xs font-semibold"
+                    className="px-2.5 py-1 rounded-lg bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20 text-white text-xs font-semibold"
                   >
                     {c.code}
                   </span>
@@ -179,7 +179,7 @@ export default function WelcomeBack({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35 }}
             onClick={onViewPlan}
-            className="w-full bg-[#0046FF] hover:bg-[#0036CC] text-white font-bold py-4 rounded-xl shadow-lg shadow-[#0046FF]/30 transition-all flex items-center justify-center gap-3 text-lg group"
+            className="w-full bg-[var(--accent-blue)] hover:opacity-90 text-white font-bold py-4 rounded-xl shadow-lg shadow-[var(--accent-blue)]/30 transition-all flex items-center justify-center gap-3 text-lg group"
           >
             <GraduationCap className="w-5 h-5" />
             View My Degree Plan

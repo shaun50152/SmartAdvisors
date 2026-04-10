@@ -11,7 +11,8 @@ export interface Course {
 
 export interface ElectiveCourse extends Course {
   missingPrereqs: string[];
-  group?: string;
+  /** From degree_courses.elective_group (may be null for legacy rows). */
+  electiveGroup?: string | null;
 }
 
 export interface ElectiveGroup {

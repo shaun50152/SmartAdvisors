@@ -133,7 +133,6 @@ function CourseRow({ course }: { course: PlannedCourse }) {
                         : 'bg-[#1a1d35] border-ds-muted/20'
                     } hover:shadow-[0_0_30px_rgba(91,124,250,0.12)]`}
                   >
-                    {/* Recommended badge for top professor */}
                     {i === 0 && (
                       <div className="mb-2">
                         <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-gradient-to-r from-ds-orange to-ds-coral text-[9px] sm:text-[10px] font-bold text-white uppercase tracking-wide">
@@ -142,18 +141,13 @@ function CourseRow({ course }: { course: PlannedCourse }) {
                       </div>
                     )}
                     <div className="flex items-start gap-2.5 sm:gap-3.5">
-                      {/* Avatar */}
                       <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] sm:text-xs font-bold ${
                         i === 0 ? 'bg-gradient-to-br from-ds-orange to-ds-coral text-white' : 'bg-gradient-to-br from-ds-purple to-ds-coral text-white'
                       }`}>
                         {getInitials(prof.name)}
                       </div>
-                      {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <span className="text-ds-text font-semibold text-sm block truncate">
-                          {prof.name}
-                        </span>
-                        {/* Tags */}
+                        <span className="text-ds-text font-semibold text-sm block truncate">{prof.name}</span>
                         {prof.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {prof.tags.slice(0, 3).map((tag, ti) => (
@@ -164,7 +158,6 @@ function CourseRow({ course }: { course: PlannedCourse }) {
                           </div>
                         )}
                       </div>
-                      {/* Stats */}
                       <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                         {prof.rating > 0 && (
                           <span className="flex items-center gap-1 text-ds-orange font-bold text-sm">
@@ -249,8 +242,6 @@ export default function SemesterPlanView({ plan, onBack, onEditPlan, onNewTransc
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-ds-text mb-4 sm:mb-6 flex items-center justify-center gap-2 sm:gap-3">
           Your Degree Plan <GraduationCap className="w-7 h-7 sm:w-10 sm:h-10 text-ds-orange" />
         </h2>
-
-        {/* Top summary badges */}
         <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-5">
           <span className="flex items-center gap-2 bg-ds-purple text-white font-bold px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm shadow-lg shadow-ds-purple/25 w-full sm:w-auto justify-center">
             <Layers className="w-4 h-4" /> {totalCoursesPlanned} courses
@@ -262,8 +253,6 @@ export default function SemesterPlanView({ plan, onBack, onEditPlan, onNewTransc
             <TrendingUp className="w-4 h-4" /> {plan.totalRemainingHours} credit hours remaining
           </span>
         </div>
-
-        {/* Bottom progress badges */}
         {plan.stats && (
           <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs sm:text-sm">
             <span className="flex items-center gap-1.5 bg-ds-card/40 border-2 border-ds-purple/50 text-ds-purple font-semibold px-3 sm:px-4 py-1.5 rounded-full">
@@ -278,6 +267,7 @@ export default function SemesterPlanView({ plan, onBack, onEditPlan, onNewTransc
           </div>
         )}
       </motion.div>
+
 
       {/* Semester cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 semester-grid">

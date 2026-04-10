@@ -11,7 +11,14 @@ interface LayoutProps {
   fullViewport?: boolean;
 }
 
-export default function Layout({ children, onLogoClick, user, onSignOut, onSignIn, fullViewport }: LayoutProps) {
+export default function Layout({
+  children,
+  onLogoClick,
+  user,
+  onSignOut,
+  onSignIn,
+  fullViewport,
+}: LayoutProps) {
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -106,7 +113,6 @@ export default function Layout({ children, onLogoClick, user, onSignOut, onSignI
         </div>
       </nav>
 
-      {/* Page Content */}
       <main
         className={
           fullViewport

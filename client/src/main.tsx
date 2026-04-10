@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App.tsx';
 import './index.css';
@@ -9,11 +10,13 @@ const googleOAuthEnabled = Boolean(clientId);
 
 /* StrictMode off in dev: it double-invokes effects and re-renders, which makes GSAP-heavy UI feel much laggier than production. */
 createRoot(document.getElementById('root')!).render(
-  clientId ? (
-    <GoogleOAuthProvider clientId={clientId}>
-      <App googleOAuthEnabled={googleOAuthEnabled} />
-    </GoogleOAuthProvider>
-  ) : (
-    <App googleOAuthEnabled={false} />
-  )
+  <BrowserRouter>
+    {clientId ? (
+      <GoogleOAuthProvider clientId={clientId}>
+        <App googleOAuthEnabled={googleOAuthEnabled} />
+      </GoogleOAuthProvider>
+    ) : (
+      <App googleOAuthEnabled={false} />
+    )}
+  </BrowserRouter>
 );

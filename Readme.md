@@ -21,8 +21,11 @@ A UTA course recommendation and degree planning app. Upload your transcript, cho
 SmartAdvisors/
 ├── client/                          # React/TypeScript frontend (Vite)
 │   ├── src/
-│   │   ├── main.tsx                 # Entry point — wraps app in GoogleOAuthProvider
-│   │   ├── App.tsx                  # Main app orchestrator (step flow + auth state)
+│   │   ├── main.tsx                 # Entry — BrowserRouter + GoogleOAuthProvider
+│   │   ├── App.tsx                  # AppStateProvider wrapper
+│   │   ├── routes/AppRoutes.tsx     # React Router routes (/dashboard, /plan, …)
+│   │   ├── context/AppStateContext.tsx  # Global state + API calls + localStorage sync
+│   │   ├── lib/persistSession.ts    # sa_user, sa_flow, disclaimer, plan keys
 │   │   ├── config/
 │   │   │   └── colleges.ts          # Shared college/degree config (single source of truth)
 │   │   └── components/
@@ -38,6 +41,7 @@ SmartAdvisors/
 │   │       ├── WelcomeBack.tsx       # Returning user dashboard with plan summary
 │   │       ├── ProcessingOverlay.tsx # Reusable loading overlay with animated steps
 │   │       └── Layout.tsx           # Top navbar (logo, user profile, sign out)
+│   ├── public/_redirects            # SPA fallback for Netlify (all paths → index.html)
 │   ├── .env                         # Local only — NOT committed (see setup below)
 │   ├── package.json
 │   └── vite.config.ts
@@ -63,6 +67,27 @@ SmartAdvisors/
 ├── requirements.txt                 # Python dependencies
 └── .env.example                     # Template for environment variables
 ```
+
+---
+
+## Client routes and refresh behavior
+
+The SPA uses **React Router** (`react-router-dom`). Main paths:
+
+| Path | Purpose |
+|------|---------|
+| `/` | Landing + sign-in |
+| `/upload` | Transcript + major |
+| `/transcript` | Review parsed courses |
+| `/preferences` | Professor preferences |
+| `/degree-planner` | Plan degree wizard (signed-in) |
+| `/dashboard` | Returning-user hub (saved plan) |
+| `/plan` | Full semester plan |
+| `/recommendations` | Guest recommendations |
+
+**Persistence (localStorage):** `sa_disclaimer_accepted`, `sa_user` (Google profile after sign-in), `sa_flow` (last route, department, completed courses, preferences, guest API payload), and `sa_plan_<email>` (saved degree plan for signed-in users). Refresh restores the open URL and state where possible; signing in with Google and an existing `sa_plan_*` goes straight to **`/dashboard`**.
+
+**Static hosting:** For hosts other than Netlify, configure the server to serve `index.html` for unknown paths (same role as [`client/public/_redirects`](client/public/_redirects)). `vite preview` and `npm run dev` handle this automatically.
 
 ---
 
